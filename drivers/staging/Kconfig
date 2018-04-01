@@ -52,4 +52,6 @@ source "drivers/staging/vme_user/Kconfig"
 
 source "drivers/staging/gpib/Kconfig"
 
+source "drivers/staging/p4wifi/Kconfig"
+
 endif # STAGING
