@@ -81,6 +81,13 @@ static int tegra_machine_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_card *card = snd_soc_dapm_to_card(w->dapm);
 	struct tegra_machine *machine = snd_soc_card_get_drvdata(card);
 
+	if (machine->asoc->dapm_event) {
+		int ret = machine->asoc->dapm_event(w, k, event);
+
+		if (ret <= 0)
+			return ret;
+	}
+
 	if (!snd_soc_dapm_widget_name_cmp(w, "Int Spk") ||
 	    !snd_soc_dapm_widget_name_cmp(w, "Speakers"))
 		gpiod_set_value_cansleep(machine->gpiod_spkr_en,
@@ -501,6 +508,11 @@ int tegra_asoc_machine_probe(struct platform_device *pdev)
 	if (IS_ERR(gpiod))
 		return dev_err_probe(dev, PTR_ERR(gpiod),
 				     "failed to get ext-mic-en GPIO\n");
+
+	gpiod = devm_gpiod_get_optional(dev, "nvidia,ear-sel-en", GPIOD_OUT_LOW);
+	machine->gpiod_ear_sel = gpiod;
+	if (IS_ERR(gpiod))
+		return PTR_ERR(gpiod);
 
 	err = snd_soc_of_parse_card_name(card, "nvidia,model");
 	if (err)
