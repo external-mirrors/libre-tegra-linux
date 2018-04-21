@@ -130,6 +130,13 @@ config EXTCON_MAX14526
 	  Maxim MAX14526. The MAX14526 MUIC is a USB port accessory
 	  detector and switch.
 
+config EXTCON_P4WIFI
+	tristate "P4WIFI USB EXTCON support"
+	depends on STMPE_ADC
+	help
+	  Say Y here to enable support for USB peripheral and USB host
+	  detection by p4wifi usb.
+
 config EXTCON_PALMAS
 	tristate "Palmas USB EXTCON support"
 	depends on MFD_PALMAS
