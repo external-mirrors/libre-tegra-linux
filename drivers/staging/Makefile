@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Makefile for staging directory
 
+obj-y				+= ramconsole/
 obj-y				+= media/
 obj-$(CONFIG_FB_OLPC_DCON)	+= olpc_dcon/
 obj-$(CONFIG_RTL8192E)		+= rtl8192e/
