@@ -15,3 +15,7 @@ obj-$(CONFIG_HOTPLUG_CPU)               += hotplug.o
 
 obj-$(CONFIG_ARCH_TEGRA_114_SOC)	+= pm-tegra30.o
 obj-$(CONFIG_ARCH_TEGRA_124_SOC)	+= pm-tegra30.o
+
+obj-y					+= pinmux-t2.o
+obj-y					+= pinmux-t3.o
+obj-y					+= pinmux-t11.o
