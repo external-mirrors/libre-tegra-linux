@@ -10,6 +10,7 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/usb/otg.h>
+#include <linux/workqueue.h>
 
 struct gpio_desc;
 
@@ -87,6 +88,8 @@ struct tegra_usb_phy {
 	bool wakeup_enabled;
 	bool pad_wakeup;
 	bool powered_on;
+
+	struct delayed_work clk_dbg_check_work;
 };
 
 #endif /* __TEGRA_USB_PHY_H */
