@@ -4,7 +4,9 @@
 # to ensure this currently.
 # Similarly, buddy must come first since it is used by other drivers.
 obj-$(CONFIG_GPU_BUDDY)	+= buddy.o
-obj-y			+= host1x/ drm/ vga/ tests/
+obj-$(CONFIG_TEGRA_HOST1X)	+= host1x/
+obj-$(CONFIG_GRATE_HOST1X)	+= host1x-grate/
+obj-y			+= drm/ vga/ tests/
 obj-$(CONFIG_IMX_IPUV3_CORE)	+= ipu-v3/
 obj-$(CONFIG_TRACE_GPU_MEM)		+= trace/
 
