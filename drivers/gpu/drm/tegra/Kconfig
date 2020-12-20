@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-only
-config DRM_TEGRA
+config DRM_TEGRA_ORIG
 	tristate "NVIDIA Tegra DRM"
 	depends on ARCH_TEGRA || COMPILE_TEST
+	depends on !DRM_TEGRA
 	depends on COMMON_CLK
 	depends on DRM
 	depends on OF
@@ -26,7 +27,7 @@ config DRM_TEGRA
 	  To compile this driver as a module, choose M here: the module
 	  will be called tegra-drm.
 
-if DRM_TEGRA
+if DRM_TEGRA_ORIG
 
 config DRM_TEGRA_DEBUG
 	bool "NVIDIA Tegra DRM debug support"
