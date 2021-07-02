@@ -47,5 +47,6 @@ dtb-$(CONFIG_ARCH_TEGRA_3x_SOC) += \
 	tegra30-lg-p880.dtb \
 	tegra30-lg-p895.dtb \
 	tegra30-microsoft-surface-rt.dtb \
+	tegra30-microsoft-surface-rt-efi.dtb \
 	tegra30-ouya.dtb \
 	tegra30-pegatron-chagall.dtb
