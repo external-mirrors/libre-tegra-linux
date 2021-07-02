@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+#include "tegra30-microsoft-surface-rt.dts"
+
+/*
+ * Temporary Microsoft Surface RT device-tree for EFI booting.
+ * Replacing PMIC with fixed regulators.
+ */
+
+/ {
+	compatible = "microsoft,surface-rt-efi", "microsoft,surface-rt", "nvidia,tegra30";
+
+	/* L2 cache does not work yet */
+	/delete-node/ cache-controller@50043000;
+
+	ldo5_reg: tps65911-ldo5 {
+		compatible = "regulator-fixed";
+		regulator-name = "vddio_sdmmc";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	/* DVFS cannot work with UEFI, delete it */
+	cpus {
+		cpu0: cpu@0 {
+			/delete-property/ cpu-supply;
+			/delete-property/ operating-points-v2;
+			#cooling-cells = <2>;
+		};
+		cpu1: cpu@1 {
+			/delete-property/ cpu-supply;
+			/delete-property/ operating-points-v2;
+			#cooling-cells = <2>;
+		};
+		cpu2: cpu@2 {
+			/delete-property/ cpu-supply;
+			/delete-property/ operating-points-v2;
+			#cooling-cells = <2>;
+		};
+		cpu3: cpu@3 {
+			/delete-property/ cpu-supply;
+			/delete-property/ operating-points-v2;
+			#cooling-cells = <2>;
+		};
+	};
+
+	i2c@7000d000 {
+		pmic@2d {
+			/delete-node/ regulators;
+		};
+
+		/* Core regulator cannot work with UEFI, delete it */
+		/delete-node/ core-regulator@60;
+	};
+
+	pmc@7000e400 {
+		/* CPU Idle does not work yet, disabling LP2 */
+		/delete-property/ nvidia,suspend-mode;
+
+		/* Core regulator cannot work with UEFI, use fallback stub */
+		core-supply = <&vdd_pd_core_stub>;
+	};
+};
