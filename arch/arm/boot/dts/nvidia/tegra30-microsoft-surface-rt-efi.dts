@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+#include "tegra30-microsoft-surface-rt.dts"
+
+/*
+ * Temporary Microsoft Surface RT device-tree for EFI booting.
+ */
+
+/ {
+	compatible = "microsoft,surface-rt-efi", "microsoft,surface-rt", "nvidia,tegra30";
+
+	/* 1 GiB is wrong size but 2GB causes issues with EFI */
+	memory@80000000 {
+		reg = <0x80000000 0x40000000>;
+	};
+
+	firmware {
+		trusted-foundations {
+			compatible = "tlm,trusted-foundations";
+			tlm,version-major = <0x0>;
+			tlm,version-minor = <0x0>;
+			tlm,microsoft-surface-rt;
+		};
+	};
+};
+
+&tegra_pmc {
+	/* CPU Idle does not work yet, disabling LP2 */
+	/delete-property/ nvidia,suspend-mode;
+};
