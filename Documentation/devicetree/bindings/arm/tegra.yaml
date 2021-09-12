@@ -119,6 +119,9 @@ properties:
           - const: microsoft,surface-rt
           - const: nvidia,tegra30
       - items:
+          - const: lenovo,cl2n
+          - const: nvidia,tegra30
+      - items:
           - const: ouya,ouya
           - const: nvidia,tegra30
       - items:
