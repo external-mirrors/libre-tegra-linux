@@ -60,6 +60,7 @@
 			reusable;
 		};
 
+		/* Fails to boot without it */
 		framebuffer@abe01000 {
 			reg = <0xabe01000 (1920 * 1080 * 4)>;
 			no-map;
@@ -1108,7 +1109,28 @@
 		/delete-property/ reg-shift;
 		status = "okay";
 
+		nvidia,adjust-baud-rates = <0 9600 100>,
+					   <9600 115200 200>,
+					   <1000000 4000000 136>;
+
 		/* Azurewave AW-AH691 BCM43241B0 */
+		bluetooth {
+			compatible = "brcm,bcm43241b0-bt";
+			max-speed = <4000000>;
+
+			clocks = <&tegra_pmc TEGRA_PMC_CLK_BLINK>;
+			clock-names = "txco";
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(U, 6) IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "host-wakeup";
+
+			device-wakeup-gpios = <&gpio TEGRA_GPIO(U, 1) GPIO_ACTIVE_HIGH>;
+			shutdown-gpios = <&gpio TEGRA_GPIO(U, 0) GPIO_ACTIVE_HIGH>;
+
+			vbat-supply  = <&vdd_3v3_com>;
+			vddio-supply = <&vdd_1v8_vio>;
+		};
 	};
 
 	pwm: pwm@7000a000 {
@@ -1125,6 +1147,37 @@
 		clock-frequency = <400000>;
 
 		/* Nuvoton NPCE791LA0DX embedded controller */
+		embedded-controller@15 {
+			compatible = "asus,ec-pad";
+			reg = <0x15>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(S, 2) IRQ_TYPE_LEVEL_LOW>;
+
+			request-gpio = <&gpio TEGRA_GPIO(Q, 1) GPIO_ACTIVE_LOW>;
+
+			asus,dockram = <&dockram>;
+			asus,clear-factory-mode;
+
+			battery {
+				compatible = "asus,ec-battery";
+				monitored-battery = <&pad_battery>;
+			};
+
+			charger {
+				compatible = "asus,ec-charger";
+				monitored-battery = <&pad_battery>;
+			};
+
+			led {
+				compatible = "asus,ec-led";
+			};
+		};
+
+		dockram: dockram@17 {
+			compatible = "asus,dockram";
+			reg = <0x17>;
+		};
 	};
 
 	i2c@7000c500 {
