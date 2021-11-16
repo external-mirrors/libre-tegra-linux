@@ -60,6 +60,7 @@
 			reusable;
 		};
 
+		/* Fails to boot without it */
 		framebuffer@abe01000 {
 			reg = <0xabe01000 (1920 * 1080 * 4)>;
 			no-map;
@@ -1108,7 +1109,28 @@
 		/delete-property/ reg-shift;
 		status = "okay";
 
+		nvidia,adjust-baud-rates = <0 9600 100>,
+					   <9600 115200 200>,
+					   <1000000 4000000 136>;
+
 		/* Azurewave AW-AH691 BCM43241B0 */
+		bluetooth {
+			compatible = "brcm,bcm43241b0-bt";
+			max-speed = <4000000>;
+
+			clocks = <&tegra_pmc TEGRA_PMC_CLK_BLINK>;
+			clock-names = "txco";
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(U, 6) IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "host-wakeup";
+
+			device-wakeup-gpios = <&gpio TEGRA_GPIO(U, 1) GPIO_ACTIVE_HIGH>;
+			shutdown-gpios = <&gpio TEGRA_GPIO(U, 0) GPIO_ACTIVE_HIGH>;
+
+			vbat-supply  = <&vdd_3v3_com>;
+			vddio-supply = <&vdd_1v8_vio>;
+		};
 	};
 
 	pwm: pwm@7000a000 {
