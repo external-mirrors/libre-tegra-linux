@@ -1298,15 +1298,107 @@
 		};
 	};
 
-	i2c@7000c400 {
+	gen2_i2c: i2c@7000c400 {
 		status = "okay";
 		clock-frequency = <100000>;
+
+		/* Nuvoton NPCE69ALA0DX embedded controller */
+		embedded-controller@15 {
+			compatible = "asus,ec-pad";
+			reg = <0x15>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(Q, 5) IRQ_TYPE_LEVEL_LOW>;
+
+			request-gpio = <&gpio TEGRA_GPIO(Q, 2) GPIO_ACTIVE_LOW>;
+
+			asus,dockram = <&dockram>;
+			asus,clear-factory-mode;
+
+			battery {
+				compatible = "asus,ec-battery";
+				monitored-battery = <&pad_battery>;
+			};
+
+			charger {
+				compatible = "asus,ec-charger";
+				monitored-battery = <&pad_battery>;
+			};
+
+			led {
+				compatible = "asus,ec-led";
+			};
+		};
+
+		dockram: dockram@17 {
+			compatible = "asus,dockram";
+			reg = <0x17>;
+		};
 
 		power-sensor@44 {
 			compatible = "ti,ina230";
 			reg = <0x44>;
 
 			shunt-resistor = <5000>;
+		};
+	};
+
+	i2c-dock {
+		compatible = "i2c-hotplug-gpio";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupts-extended = <&gpio TEGRA_GPIO(O, 0) IRQ_TYPE_EDGE_BOTH>;
+		detect-gpios = <&gpio TEGRA_GPIO(O, 0) GPIO_ACTIVE_LOW>;
+
+		i2c-parent = <&gen2_i2c>;
+
+		touchpad@14 {
+			compatible = "elan,ekth3000";
+			reg = <0x14>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(W, 2) IRQ_TYPE_LEVEL_LOW>;
+
+			post-power-on-delay-ms = <100>;
+			post-reset-deassert-delay-ms = <100>;
+
+			vcc-supply = <&vdd_3v3_sys>;
+		};
+
+		keyboard@16 {
+			compatible = "hid-over-i2c";
+			reg = <0x16>;
+
+			hid-descr-addr = <0x0071>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(J, 0) IRQ_TYPE_LEVEL_LOW>;
+
+			post-power-on-delay-ms = <100>;
+			post-reset-deassert-delay-ms = <100>;
+
+			vdd-supply = <&vdd_3v3_sys>;
+			vddl-supply = <&vdd_1v8_vio>;
+		};
+
+		/* Nuvoton NPCE69ALA0DX embedded controller */
+		embedded-controller@19 {
+			compatible = "asus,ec-power";
+			reg = <0x19>;
+
+			asus,dockram = <&dockram>;
+
+			battery {
+				compatible = "asus,ec-battery";
+				monitored-battery = <&dock_battery>;
+			};
+
+			charger {
+				compatible = "asus,ec-charger";
+				monitored-battery = <&dock_battery>;
+			};
 		};
 	};
 
@@ -1728,6 +1820,22 @@
 		brightness-levels = <1 255>;
 		num-interpolated-steps = <254>;
 		default-brightness-level = <224>;
+	};
+
+	pad_battery: battery-pad {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <8150000>;
+		energy-full-design-microwatt-hours = <31000000>;
+		operating-range-celsius = <0 45>;
+	};
+
+	dock_battery: battery-dock {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <4200000>;
+		energy-full-design-microwatt-hours = <16000000>;
+		operating-range-celsius = <0 45>;
 	};
 
 	/* PMIC has a built-in 32KHz oscillator which is used by PMC */
