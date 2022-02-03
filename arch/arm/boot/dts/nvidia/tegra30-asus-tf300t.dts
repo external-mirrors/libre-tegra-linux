@@ -1007,6 +1007,14 @@
 		};
 	};
 
+	dock_battery: battery-dock {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <2260000>;
+		energy-full-design-microwatt-hours = <16000000>;
+		operating-range-celsius = <0 45>;
+	};
+
 	pad_battery: battery-pad {
 		compatible = "simple-battery";
 		device-chemistry = "lithium-ion-polymer";
@@ -1017,6 +1025,12 @@
 
 	display-panel {
 		compatible = "innolux,g101ice-l01";
+	};
+
+	i2c-dock {
+		embedded-controller@19 {
+			compatible = "asus,tf300t-ec-dock", "asus,tf101-ec-dock";
+		};
 	};
 
 	opp-table-emc {

@@ -838,6 +838,12 @@
 		compatible = "innolux,g101ice-l01";
 	};
 
+	i2c-dock {
+		embedded-controller@19 {
+			compatible = "asus,tf300tl-ec-dock", "asus,tf101-ec-dock";
+		};
+	};
+
 	opp-table-emc {
 		/delete-node/ opp-750000000-1300;
 		/delete-node/ opp-800000000-1300;

@@ -719,6 +719,14 @@
 		};
 	};
 
+	dock_battery: battery-dock {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <2940000>;
+		energy-full-design-microwatt-hours = <22000000>;
+		operating-range-celsius = <0 45>;
+	};
+
 	pad_battery: battery-pad {
 		compatible = "simple-battery";
 		device-chemistry = "lithium-ion-polymer";
@@ -745,6 +753,12 @@
 		compatible = "gpio-vibrator";
 		enable-gpios = <&gpio TEGRA_GPIO(H, 7) GPIO_ACTIVE_HIGH>;
 		vcc-supply = <&vdd_3v3_sys>;
+	};
+
+	i2c-dock {
+		embedded-controller@19 {
+			compatible = "asus,tf700t-ec-dock", "asus,tf101-ec-dock";
+		};
 	};
 
 	i2c-mux {
