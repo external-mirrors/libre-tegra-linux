@@ -62,4 +62,19 @@
 			wakeup-source;
 		};
 	};
+
+	i2cmux {
+		i2c@1 {
+			embedded-controller@19 {
+				compatible = "asus,sl101-ec-dock";
+				reg = <0x19>, <0x1b>;
+				reg-names = "ec", "dockram";
+
+				interrupt-parent = <&gpio>;
+				interrupts = <TEGRA_GPIO(S, 2) IRQ_TYPE_LEVEL_LOW>;
+
+				request-gpios = <&gpio TEGRA_GPIO(S, 3) GPIO_ACTIVE_LOW>;
+			};
+		};
+	};
 };

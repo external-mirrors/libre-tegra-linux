@@ -1051,6 +1051,18 @@
 		clock-frequency = <100000>;
 
 		/* Nuvoton NPCE698LA0BX embedded controller */
+		embedded-controller@15 {
+			compatible = "asus,tf600t-ec-pad";
+			reg = <0x15>, <0x17>;
+			reg-names = "ec", "dockram";
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(S, 2) IRQ_TYPE_LEVEL_LOW>;
+
+			request-gpios = <&gpio TEGRA_GPIO(Q, 1) GPIO_ACTIVE_LOW>;
+
+			monitored-battery = <&pad_battery>;
+		};
 	};
 
 	i2c@7000c400 {

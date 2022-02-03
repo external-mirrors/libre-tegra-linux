@@ -209,6 +209,10 @@
 			touchscreen-size-y = <1408>;
 			touchscreen-inverted-y;
 		};
+
+		embedded-controller@15 {
+			compatible = "asus,tf300tl-ec-pad", "asus,tf201-ec-pad";
+		};
 	};
 
 	i2c@7000c500 {

@@ -110,6 +110,10 @@
 			touchscreen-size-y = <1856>;
 			touchscreen-inverted-y;
 		};
+
+		embedded-controller@15 {
+			compatible = "asus,tf700t-ec-pad", "asus,tf201-ec-pad";
+		};
 	};
 
 	i2c@7000c500 {
@@ -713,6 +717,14 @@
 					0x00000000 0x8000308c 0xe8000000 0xff00ff49 >;
 			};
 		};
+	};
+
+	pad_battery: battery-pad {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <3380000>;
+		energy-full-design-microwatt-hours = <25000000>;
+		operating-range-celsius = <0 45>;
 	};
 
 	tc358768_refclk: clock-tc358768 {

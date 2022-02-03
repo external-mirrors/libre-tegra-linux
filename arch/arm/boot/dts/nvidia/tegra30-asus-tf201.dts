@@ -81,6 +81,10 @@
 			vdda-supply = <&vdd_3v3_sys>;
 			vdd-supply  = <&vdd_3v3_sys>;
 		};
+
+		embedded-controller@15 {
+			compatible = "asus,tf201-ec-pad";
+		};
 	};
 
 	i2c@7000c500 {
@@ -602,6 +606,14 @@
 	usb-phy@7d008000 {
 		/delete-property/ nvidia,xcvr-setup-use-fuses;
 		nvidia,xcvr-setup = <5>;      /* Based on TF201 fuse value - 48 */
+	};
+
+	pad_battery: battery-pad {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <3380000>;
+		energy-full-design-microwatt-hours = <25000000>;
+		operating-range-celsius = <0 45>;
 	};
 
 	display-panel {

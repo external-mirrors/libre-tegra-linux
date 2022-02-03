@@ -1298,9 +1298,23 @@
 		};
 	};
 
-	i2c@7000c400 {
+	gen2_i2c: i2c@7000c400 {
 		status = "okay";
 		clock-frequency = <100000>;
+
+		/* Nuvoton NPCE69ALA0DX embedded controller */
+		embedded-controller@15 {
+			compatible = "asus,tf701t-ec-pad", "asus,tf600t-ec-pad";
+			reg = <0x15>, <0x17>;
+			reg-names = "ec", "dockram";
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(Q, 5) IRQ_TYPE_LEVEL_LOW>;
+
+			request-gpios = <&gpio TEGRA_GPIO(Q, 2) GPIO_ACTIVE_LOW>;
+
+			monitored-battery = <&pad_battery>;
+		};
 
 		power-sensor@44 {
 			compatible = "ti,ina230";
@@ -1728,6 +1742,14 @@
 		brightness-levels = <1 255>;
 		num-interpolated-steps = <254>;
 		default-brightness-level = <224>;
+	};
+
+	pad_battery: battery-pad {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion-polymer";
+		charge-full-design-microamp-hours = <8150000>;
+		energy-full-design-microwatt-hours = <31000000>;
+		operating-range-celsius = <0 45>;
 	};
 
 	/* PMIC has a built-in 32KHz oscillator which is used by PMC */
