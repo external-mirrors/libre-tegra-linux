@@ -1130,6 +1130,19 @@
 	lcd_ddc: i2c@7000c000 {
 		status = "okay";
 		clock-frequency = <100000>;
+
+		/* Fortemedia FM34NE voice processor */
+		dsp@60 {
+			reg = <0x60>;
+
+			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
+
+			assigned-clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
+			assigned-clock-parents = <&tegra_car TEGRA30_CLK_EXTERN1>;
+
+			bypass-gpios = <&gpio TEGRA_GPIO(BB, 6) GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&gpio TEGRA_GPIO(O, 3) GPIO_ACTIVE_LOW>;
+		};
 	};
 
 	gen2_i2c: i2c@7000c400 {
