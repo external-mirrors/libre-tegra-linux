@@ -533,6 +533,18 @@
 			DCVDD-supply = <&vdd_1v8_sys>;
 		};
 
+		/* Fortemedia FM34NE voice processor */
+		dsp@60 {
+			reg = <0x60>;
+
+			clocks = <&tegra_car TEGRA20_CLK_CDEV1>;
+
+			bypass-gpios = <&gpio TEGRA_GPIO(H, 3) GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&gpio TEGRA_GPIO(H, 2) GPIO_ACTIVE_LOW>;
+
+			vdd-supply = <&vdd_1v8_sys>;
+		};
+
 		gyroscope@68 {
 			compatible = "invensense,mpu3050";
 			reg = <0x68>;
