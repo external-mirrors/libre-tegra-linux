@@ -30,6 +30,10 @@
 			atmel,wakeup-method = <ATMEL_MXT_WAKEUP_I2C_SCL>;
 		};
 
+		dsp@60 {
+			compatible = "asus,tf101-dsp", "fortemedia,fm34";
+		};
+
 		gyroscope@68 {
 			mount-matrix =	 "0",  "1",  "0",
 					"-1",  "0",  "0",

@@ -184,6 +184,14 @@
 		};
 	};
 
+	i2c@7000c000 {
+		dsp@60 {
+			compatible = "asus,tf300t-dsp", "fortemedia,fm34";
+
+			vdd-supply = <&vdd_1v8_vio>;
+		};
+	};
+
 	i2c@7000c400 {
 		/* Elantech EKTH1036 touchscreen */
 		touchscreen@10 {

@@ -68,6 +68,14 @@
 		};
 	};
 
+	i2c@7000c000 {
+		dsp@60 {
+			compatible = "asus,tf300t-dsp", "fortemedia,fm34";
+
+			vdd-supply = <&vdd_1v8_dsp>;
+		};
+	};
+
 	i2c@7000c400 {
 		/* Elantech EKTH1036 touchscreen */
 		touchscreen@10 {
@@ -1025,6 +1033,16 @@
 		/delete-node/ opp-750000000;
 		/delete-node/ opp-800000000;
 		/delete-node/ opp-900000000;
+	};
+
+	vdd_1v8_dsp: regulator-dsp {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_1v8_dsp";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio TEGRA_GPIO(P, 3) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&vdd_1v8_vio>;
 	};
 
 	sound {

@@ -60,6 +60,14 @@
 		};
 	};
 
+	i2c@7000c000 {
+		dsp@60 {
+			compatible = "asus,tf201-dsp", "fortemedia,fm34";
+
+			vdd-supply = <&vdd_1v8_dsp>;
+		};
+	};
+
 	i2c@7000c400 {
 		/* Atmel MXT768E touchscreen */
 		touchscreen@4d {
@@ -639,6 +647,16 @@
 		/delete-node/ opp-750000000-1300;
 		/delete-node/ opp-800000000-1300;
 		/delete-node/ opp-900000000-1350;
+	};
+
+	vdd_1v8_dsp: regulator-dsp {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_1v8_dsp";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio TEGRA_GPIO(U, 5) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&vdd_1v8_vio>;
 	};
 
 	sound {
