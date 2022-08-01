@@ -504,7 +504,7 @@ static int onboard_dev_probe(struct platform_device *pdev)
 	 */
 	schedule_work(&attach_usb_driver_work);
 
-	return 0;
+	return devm_of_platform_populate(dev);
 
 err_power_off:
 	onboard_dev_power_off(onboard_dev);
