@@ -1050,6 +1050,35 @@ static const struct attribute_group apds990x_attribute_group[] = {
 	{.attrs = sysfs_attrs_ctrl },
 };
 
+static int apds990x_fw_probe(struct i2c_client *client,
+			     struct apds990x_chip *chip)
+{
+	struct apds990x_platform_data *pdata;
+	u32 ret, val;
+
+	pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENOMEM;
+
+	ret = device_property_read_u32(&client->dev, "avago,pdrive", &val);
+	if (ret)
+		val = 0;
+	pdata->pdrive = val;
+
+	ret = device_property_read_u32(&client->dev, "avago,ppcount", &val);
+	if (ret)
+		val = 1;
+	pdata->ppcount = val;
+
+	chip->pdata = pdata;
+
+	/* set regulator names which fit device tree entries */
+	chip->regs[0].supply = "vdd";
+	chip->regs[1].supply = "vled";
+
+	return 0;
+}
+
 static int apds990x_probe(struct i2c_client *client)
 {
 	struct apds990x_chip *chip;
@@ -1064,12 +1093,12 @@ static int apds990x_probe(struct i2c_client *client)
 
 	init_waitqueue_head(&chip->wait);
 	mutex_init(&chip->mutex);
-	chip->pdata	= client->dev.platform_data;
 
-	if (chip->pdata == NULL) {
-		dev_err(&client->dev, "platform data is mandatory\n");
-		err = -EINVAL;
-		goto fail1;
+	chip->pdata = client->dev.platform_data;
+	if (!chip->pdata) {
+		err = apds990x_fw_probe(client, chip);
+		if (err)
+			return err;
 	}
 
 	if (chip->pdata->cf.ga == 0) {
@@ -1110,8 +1139,11 @@ static int apds990x_probe(struct i2c_client *client)
 	chip->prox_persistence = APDS_DEFAULT_PROX_PERS;
 	chip->prox_continuous_mode = false;
 
-	chip->regs[0].supply = reg_vcc;
-	chip->regs[1].supply = reg_vled;
+	if (!chip->regs[0].supply)
+		chip->regs[0].supply = reg_vcc;
+
+	if (!chip->regs[1].supply)
+		chip->regs[1].supply = reg_vled;
 
 	err = regulator_bulk_get(&client->dev,
 				 ARRAY_SIZE(chip->regs), chip->regs);
@@ -1253,6 +1285,12 @@ static int apds990x_runtime_resume(struct device *dev)
 
 #endif
 
+static const struct of_device_id apds990x_match_table[] = {
+	{ .compatible = "avago,apds990x" },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, apds990x_match_table);
+
 static const struct i2c_device_id apds990x_id[] = {
 	{ "apds990x" },
 	{}
@@ -1271,6 +1309,7 @@ static struct i2c_driver apds990x_driver = {
 	.driver	  = {
 		.name	= "apds990x",
 		.pm	= &apds990x_pm_ops,
+		.of_match_table = apds990x_match_table,
 	},
 	.probe    = apds990x_probe,
 	.remove	  = apds990x_remove,
