@@ -25,6 +25,8 @@ struct display_connector {
 
 	struct regulator	*supply;
 	struct gpio_desc	*ddc_en;
+
+	struct gpio_desc	*sel_en;
 };
 
 static inline struct display_connector *
@@ -45,14 +47,19 @@ display_connector_detect(struct drm_bridge *bridge)
 	struct display_connector *conn = to_display_connector(bridge);
 
 	if (conn->hpd_gpio) {
-		if (gpiod_get_value_cansleep(conn->hpd_gpio))
+		if (gpiod_get_value_cansleep(conn->hpd_gpio)) {
+			gpiod_set_value(conn->sel_en, 1);
 			return connector_status_connected;
-		else
+		} else {
+			gpiod_set_value(conn->sel_en, 0);
 			return connector_status_disconnected;
+		}
 	}
 
-	if (conn->bridge.ddc && drm_probe_ddc(conn->bridge.ddc))
+	if (conn->bridge.ddc && drm_probe_ddc(conn->bridge.ddc)) {
+		gpiod_set_value(conn->sel_en, 1);
 		return connector_status_connected;
+	}
 
 	switch (conn->bridge.type) {
 	case DRM_MODE_CONNECTOR_DVIA:
@@ -64,6 +71,7 @@ display_connector_detect(struct drm_bridge *bridge)
 		 * For DVI and HDMI connectors a DDC probe failure indicates
 		 * that no cable is connected.
 		 */
+		gpiod_set_value(conn->sel_en, 0);
 		return connector_status_disconnected;
 
 	case DRM_MODE_CONNECTOR_Composite:
@@ -248,7 +256,8 @@ static int display_connector_probe(struct platform_device *pdev)
 		}
 
 		if (!strcmp(hdmi_type, "a") || !strcmp(hdmi_type, "c") ||
-		    !strcmp(hdmi_type, "d") || !strcmp(hdmi_type, "e")) {
+		    !strcmp(hdmi_type, "d") || !strcmp(hdmi_type, "e") ||
+		    !strcmp(hdmi_type, "mhl")) {
 			conn->bridge.type = DRM_MODE_CONNECTOR_HDMIA;
 		} else if (!strcmp(hdmi_type, "b")) {
 			conn->bridge.type = DRM_MODE_CONNECTOR_HDMIB;
@@ -344,6 +353,12 @@ static int display_connector_probe(struct platform_device *pdev)
 			return PTR_ERR(conn->ddc_en);
 		}
 
+		conn->sel_en = devm_gpiod_get_optional(&pdev->dev, "sel",
+							GPIOD_OUT_LOW);
+		if (IS_ERR(conn->sel_en))
+			return dev_err_probe(&pdev->dev, PTR_ERR(conn->sel_en),
+					     "failed to get sel gpios\n");
+
 		ret = display_connector_get_supply(pdev, conn, "hdmi-pwr");
 		if (ret < 0)
 			return dev_err_probe(&pdev->dev, ret, "failed to get HDMI +5V Power regulator\n");
@@ -387,6 +402,9 @@ static void display_connector_remove(struct platform_device *pdev)
 
 	if (conn->ddc_en)
 		gpiod_set_value(conn->ddc_en, 0);
+
+	if (conn->sel_en)
+		gpiod_set_value(conn->sel_en, 0);
 
 	if (conn->supply)
 		regulator_disable(conn->supply);
