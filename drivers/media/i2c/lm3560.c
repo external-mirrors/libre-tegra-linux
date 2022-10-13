@@ -393,6 +393,49 @@ static int lm3560_init_device(struct lm3560_flash *flash)
 	return rval;
 }
 
+static int lm3560_of_probe(struct lm3560_flash *flash)
+{
+	struct lm3560_platform_data *pdata;
+	struct fwnode_handle *node;
+	int ret, reg;
+
+	pdata = devm_kzalloc(flash->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		return -ENODEV;
+
+	ret = device_property_read_u32(flash->dev,
+				       "ti,peak-current", &pdata->peak);
+	if (ret)
+		pdata->peak = LM3560_PEAK_3600mA;
+
+	ret = device_property_read_u32(flash->dev,
+				       "ti,max-flash-timeout-ms",
+				       &pdata->max_flash_timeout);
+	if (ret)
+		pdata->max_flash_timeout = LM3560_FLASH_TOUT_MAX;
+
+	device_for_each_child_node(flash->dev, node) {
+		fwnode_property_read_u32(node, "reg", &reg);
+
+		if (reg == LM3560_LED0 || reg == LM3560_LED1) {
+			ret = device_property_read_u32(flash->dev,
+						       "ti,max-flash-current-microamp",
+						       &pdata->max_flash_brt[reg]);
+			if (ret)
+				pdata->max_flash_brt[reg] = LM3560_FLASH_TOUT_MAX;
+
+			ret = device_property_read_u32(flash->dev,
+						       "ti,max-torch-current-microamp",
+						       &pdata->max_torch_brt[reg]);
+			if (ret)
+				pdata->max_torch_brt[reg] = LM3560_TORCH_BRT_MAX;
+		}
+	}
+	flash->pdata = pdata;
+
+	return 0;
+}
+
 static int lm3560_probe(struct i2c_client *client)
 {
 	struct lm3560_flash *flash;
@@ -409,23 +452,12 @@ static int lm3560_probe(struct i2c_client *client)
 		return rval;
 	}
 
-	/* if there is no platform data, use chip default value */
-	if (pdata == NULL) {
-		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
-		if (pdata == NULL)
-			return -ENODEV;
-		pdata->peak = LM3560_PEAK_3600mA;
-		pdata->max_flash_timeout = LM3560_FLASH_TOUT_MAX;
-		/* led 1 */
-		pdata->max_flash_brt[LM3560_LED0] = LM3560_FLASH_BRT_MAX;
-		pdata->max_torch_brt[LM3560_LED0] = LM3560_TORCH_BRT_MAX;
-		/* led 2 */
-		pdata->max_flash_brt[LM3560_LED1] = LM3560_FLASH_BRT_MAX;
-		pdata->max_torch_brt[LM3560_LED1] = LM3560_TORCH_BRT_MAX;
-	}
-	flash->pdata = pdata;
 	flash->dev = &client->dev;
 	mutex_init(&flash->lock);
+
+	/* if there is no platform data, try to read from device tree */
+	if (!pdata)
+		lm3560_of_probe(flash);
 
 	flash->hwen_gpio = devm_gpiod_get_optional(flash->dev, "enable",
 						   GPIOD_OUT_HIGH);
@@ -464,6 +496,13 @@ static void lm3560_remove(struct i2c_client *client)
 	gpiod_set_value_cansleep(flash->hwen_gpio, 0);
 }
 
+static const struct of_device_id lm3560_match[] = {
+	{ .compatible = "ti,lm3559" },
+	{ .compatible = "ti,lm3560" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, lm3560_match);
+
 static const struct i2c_device_id lm3560_id_table[] = {
 	{ LM3559_NAME },
 	{ LM3560_NAME },
@@ -476,6 +515,7 @@ static struct i2c_driver lm3560_i2c_driver = {
 	.driver = {
 		   .name = LM3560_NAME,
 		   .pm = NULL,
+		   .of_match_table = lm3560_match,
 		   },
 	.probe = lm3560_probe,
 	.remove = lm3560_remove,
