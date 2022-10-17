@@ -13,6 +13,7 @@ obj-$(CONFIG_AL3320A)		+= al3320a.o
 obj-$(CONFIG_APDS9160)		+= apds9160.o
 obj-$(CONFIG_APDS9300)		+= apds9300.o
 obj-$(CONFIG_APDS9306)		+= apds9306.o
+obj-$(CONFIG_APDS990X)		+= apds990x.o
 obj-$(CONFIG_APDS9960)		+= apds9960.o
 obj-$(CONFIG_AS73211)		+= as73211.o
 obj-$(CONFIG_BH1745)		+= bh1745.o
