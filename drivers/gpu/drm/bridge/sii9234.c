@@ -17,8 +17,10 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 
+#include <linux/devm-helpers.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/extcon.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
@@ -26,6 +28,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/of_graph.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 
@@ -224,11 +227,17 @@ struct sii9234 {
 	struct drm_bridge bridge;
 	struct device *dev;
 	struct gpio_desc *gpio_reset;
+	struct gpio_desc *gpio_sel;
 	int i2c_error;
 	struct regulator_bulk_data supplies[4];
 
 	struct mutex lock; /* Protects fields below and device registers */
 	enum sii9234_state state;
+
+	struct extcon_dev *edev;
+	struct notifier_block extcon_nb;
+	struct work_struct extcon_work;
+	int cable_state;
 };
 
 enum sii9234_client_id {
@@ -678,6 +687,53 @@ unlock:
 	mutex_unlock(&ctx->lock);
 }
 
+static void sii9234_extcon_evt_worker(struct work_struct *work)
+{
+	struct sii9234 *ctx =
+		container_of(work, struct sii9234, extcon_work);
+	int state = extcon_get_state(ctx->edev, EXTCON_DISP_MHL);
+
+	if (state == ctx->cable_state)
+		return;
+
+	ctx->cable_state = state;
+
+#if 0
+	gpiod_set_value(ctx->gpio_sel, 1); will trigger extcon
+	to send MHL = 0
+
+	gpiod_set_value(ctx->gpio_sel, 0); will trigger extcon
+	to send MHL = 1
+
+	this situation causes infinite loop, while it should
+	never occur since SEL gpio is just a switch from
+	USB to MHL lines, it should not trigger extcon
+#endif
+
+	if (state > 0) {
+		dev_err(ctx->dev, "MHL plug is connected\n");
+
+//		gpiod_set_value(ctx->gpio_sel, 1);
+//		sii9234_cable_in(ctx);
+	} else {
+		dev_err(ctx->dev, "MHL plug is disconnected\n");
+
+//		gpiod_set_value(ctx->gpio_sel, 0);
+//		sii9234_cable_out(ctx);
+	}
+}
+
+static int extcon_get_mlh_state(struct notifier_block *nb,
+				unsigned long state, void *data)
+{
+	struct sii9234 *ctx =
+		container_of(nb, struct sii9234, extcon_nb);
+
+	schedule_work(&ctx->extcon_work);
+
+	return NOTIFY_OK;
+}
+
 static enum sii9234_state sii9234_rgnd_ready_irq(struct sii9234 *ctx)
 {
 	int value;
@@ -941,7 +997,8 @@ static int sii9234_probe(struct i2c_client *client)
 	struct i2c_adapter *adapter = client->adapter;
 	struct sii9234 *ctx;
 	struct device *dev = &client->dev;
-	int ret;
+	struct device_node *extcon;
+	int ports, ret, i;
 
 	ctx = devm_drm_bridge_alloc(dev, struct sii9234, bridge,
 				    &sii9234_bridge_funcs);
@@ -971,6 +1028,38 @@ static int sii9234_probe(struct i2c_client *client)
 		return ret;
 	}
 
+	/* at least 2 ports with 1 endpoint each */
+	ports = of_graph_get_port_count(dev->of_node);
+	if (!ports)
+		return dev_err_probe(dev, -ENODEV, "no ports found\n");
+
+	for (i = 0; i < ports; i++) {
+		extcon = of_graph_get_remote_node(dev->of_node, i, -1);
+		if (extcon) {
+			ctx->edev = extcon_find_edev_by_node(extcon);
+			of_node_put(extcon);
+			if (!IS_ERR(ctx->edev))
+				break;
+		}
+	}
+
+	if (IS_ERR(ctx->edev))
+		return dev_err_probe(dev, PTR_ERR(ctx->edev), "failed to get extcon\n");
+
+	ctx->gpio_sel = devm_gpiod_get(dev, "sel", GPIOD_OUT_LOW);
+	if (IS_ERR(ctx->gpio_sel))
+		return dev_err_probe(dev, PTR_ERR(ctx->gpio_sel), "failed to get sel gpios\n");
+
+	ret = devm_work_autocancel(dev, &ctx->extcon_work, sii9234_extcon_evt_worker);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to add extcon evt stop action\n");
+
+	ctx->extcon_nb.notifier_call = extcon_get_mlh_state;
+
+	ret = devm_extcon_register_notifier(dev, ctx->edev, EXTCON_DISP_MHL, &ctx->extcon_nb);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to register notifier\n");
+
 	ret = sii9234_init_resources(ctx, client);
 	if (ret < 0)
 		return ret;
@@ -980,14 +1069,14 @@ static int sii9234_probe(struct i2c_client *client)
 	ctx->bridge.of_node = dev->of_node;
 	drm_bridge_add(&ctx->bridge);
 
-	sii9234_cable_in(ctx);
-
 	return 0;
 }
 
 static void sii9234_remove(struct i2c_client *client)
 {
 	struct sii9234 *ctx = i2c_get_clientdata(client);
+
+//	gpiod_set_value(ctx->gpio_sel, 0);
 
 	sii9234_cable_out(ctx);
 	drm_bridge_remove(&ctx->bridge);
