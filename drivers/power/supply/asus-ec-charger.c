@@ -3,6 +3,7 @@
  * ASUS EC driver - charger monitoring
  */
 
+#include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
@@ -10,12 +11,15 @@
 #include <linux/power_supply.h>
 #include <linux/property.h>
 #include <linux/mfd/asus-ec.h>
+#include <linux/unaligned.h>
 
 struct asus_ec_charger_data {
 	struct notifier_block nb;
 	const struct asusec_info *ec;
 	struct power_supply *psy;
 	struct power_supply_desc psy_desc;
+	struct mutex		 ctrl_lock;
+	u8			 ctrl_addr;
 };
 
 static enum power_supply_property asus_ec_charger_properties[] = {
@@ -24,6 +28,56 @@ static enum power_supply_property asus_ec_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 };
+
+/* Modded copy of asus_dockram_access_ctl for TF600T and TF701T */
+static int asus_ec_charger_access_ctrl(struct asus_ec_charger_data *priv,
+				       u64 *out, u64 mask, u64 xor)
+{
+	struct i2c_client *dockram_client = priv->ec->dockram;
+	char buf[DOCKRAM_ENTRY_BUFSIZE];
+	u64 val;
+	int ret;
+
+	mutex_lock(&priv->ctrl_lock);
+
+	ret = asus_dockram_read(dockram_client, priv->ctrl_addr, buf);
+	if (ret < 0)
+		goto unlock_exit;
+
+	if (buf[0] != ASUSEC_CTL_SIZE) {
+		ret = -EPROTO;
+		goto unlock_exit;
+	}
+
+	val = get_unaligned_le64(buf + 1);
+
+	if (out)
+		*out = val;
+
+	if (mask || xor) {
+		put_unaligned_le64((val & ~mask) ^ xor, buf + 1);
+		ret = asus_dockram_write(dockram_client, priv->ctrl_addr, buf);
+	}
+
+unlock_exit:
+	mutex_unlock(&priv->ctrl_lock);
+	if (ret < 0)
+		dev_err(&dockram_client->dev, "Failed to access control flags: %d\n",
+			ret);
+
+	return ret;
+}
+
+static int asus_ec_charger_get_ctrl(struct asus_ec_charger_data *priv, u64 *out)
+{
+	return asus_ec_charger_access_ctrl(priv, out, 0, 0);
+}
+
+static int asus_ec_charger_update_ctl(struct asus_ec_charger_data *priv,
+				     u64 mask, u64 xor)
+{
+	return asus_ec_charger_access_ctrl(priv, NULL, mask, xor);
+}
 
 static int asus_ec_charger_get_property(struct power_supply *psy,
 				        enum power_supply_property psp,
@@ -34,7 +88,7 @@ static int asus_ec_charger_get_property(struct power_supply *psy,
 	int ret;
 	u64 ctl;
 
-	ret = asus_ec_get_ctl(priv->ec, &ctl);
+	ret = asus_ec_charger_get_ctrl(priv, &ctl);
 	if (ret)
 		return ret;
 
@@ -90,16 +144,17 @@ static int asus_ec_charger_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
 		switch ((enum power_supply_charge_behaviour)val->intval) {
 		case POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO:
-			return asus_ec_update_ctl(priv->ec,
+			return asus_ec_charger_update_ctl(priv,
 				ASUSEC_CTL_TEST_DISCHARGE | ASUSEC_CTL_USB_CHARGE,
 				ASUSEC_CTL_USB_CHARGE);
 
 		case POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE:
-			return asus_ec_clear_ctl_bits(priv->ec,
-				ASUSEC_CTL_TEST_DISCHARGE | ASUSEC_CTL_USB_CHARGE);
+			return asus_ec_charger_update_ctl(priv,
+				ASUSEC_CTL_TEST_DISCHARGE | ASUSEC_CTL_USB_CHARGE,
+				0);
 
 		case POWER_SUPPLY_CHARGE_BEHAVIOUR_FORCE_DISCHARGE:
-			return asus_ec_update_ctl(priv->ec,
+			return asus_ec_charger_update_ctl(priv,
 				ASUSEC_CTL_TEST_DISCHARGE | ASUSEC_CTL_USB_CHARGE,
 				ASUSEC_CTL_TEST_DISCHARGE);
 		default:
@@ -159,6 +214,7 @@ static int asus_ec_charger_notify(struct notifier_block *nb,
 static int asus_ec_charger_probe(struct platform_device *pdev)
 {
 	struct asus_ec_charger_data *priv;
+	struct asus_ec_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	struct power_supply_config cfg = {};
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
@@ -167,6 +223,13 @@ static int asus_ec_charger_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 	priv->ec = cell_to_ec(pdev);
+
+	mutex_init(&priv->ctrl_lock);
+
+	if (pdata)
+		priv->ctrl_addr = pdata->ctrl_addr;
+	else
+		priv->ctrl_addr = ASUSEC_DOCKRAM_CONTROL;
 
 	cfg.fwnode = dev_fwnode(&pdev->dev);
 	cfg.drv_data = priv;

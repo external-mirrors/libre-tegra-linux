@@ -16,6 +16,11 @@ struct asusec_info {
 	struct blocking_notifier_head notify_list;
 };
 
+struct asus_ec_platform_data {
+	u8 batt_addr;
+	u8 ctrl_addr;
+};
+
 #define DOCKRAM_ENTRIES			0x100
 #define DOCKRAM_ENTRY_SIZE		32
 #define DOCKRAM_ENTRY_BUFSIZE		(DOCKRAM_ENTRY_SIZE + 1)
