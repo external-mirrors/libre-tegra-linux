@@ -11,6 +11,7 @@ obj-$(CONFIG_ADC_BATTERY_HELPER) += adc-battery-helper.o
 obj-$(CONFIG_GENERIC_ADC_BATTERY)	+= generic-adc-battery.o
 
 obj-$(CONFIG_APM_POWER)		+= apm_power.o
+obj-$(CONFIG_ASUS_TF600T_POWER)	+= asus-tf600t-power.o
 obj-$(CONFIG_AXP20X_POWER)	+= axp20x_usb_power.o
 obj-$(CONFIG_IP5XXX_POWER)	+= ip5xxx_power.o
 obj-$(CONFIG_MAX8925_POWER)	+= max8925_power.o

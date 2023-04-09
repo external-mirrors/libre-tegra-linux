@@ -45,6 +45,17 @@ config GENERIC_ADC_BATTERY
 	  Say Y here to enable support for the generic battery driver
 	  which uses IIO framework to read adc.
 
+config ASUS_TF600T_POWER
+	tristate "ASUS TF600T EC support"
+	depends on I2C && OF
+	help
+	  Say Y here to enable support for the power management solution
+	  provided by the ASUS EC found in the TF600T and TF701T mobile
+	  docks.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called asus-tf600t-power.
+
 config IP5XXX_POWER
 	tristate "Injoinic IP5xxx power bank IC driver"
 	depends on I2C
