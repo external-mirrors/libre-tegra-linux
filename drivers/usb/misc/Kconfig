@@ -367,3 +367,11 @@ config USB_ONBOARD_DEV_USB5744
 	  during hub start-up configuration stage. It is must to enable this
 	  option on AMD Kria KR260 Robotics Starter Kit as this hub is
 	  connected to USB-SD converter which mounts the root filesystem.
+
+config USB_XMM626X_POWER
+	tristate "Infineon XMM626X Baseband Power supply support"
+	help
+	  This driver provides support for Infineon XMM626X modem power
+	  supply and modes switch.
+
+	  To compile this driver as a module, choose M here.
