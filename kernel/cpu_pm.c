@@ -145,7 +145,7 @@ EXPORT_SYMBOL_GPL(cpu_pm_exit);
  *
  * Return conditions are same as __raw_notifier_call_chain.
  */
-int cpu_cluster_pm_enter(void)
+noinstr int cpu_cluster_pm_enter(void)
 {
 	return cpu_pm_notify_robust(CPU_CLUSTER_PM_ENTER, CPU_CLUSTER_PM_ENTER_FAILED);
 }
@@ -166,7 +166,7 @@ EXPORT_SYMBOL_GPL(cpu_cluster_pm_enter);
  *
  * Return conditions are same as __raw_notifier_call_chain.
  */
-int cpu_cluster_pm_exit(void)
+noinstr int cpu_cluster_pm_exit(void)
 {
 	return cpu_pm_notify(CPU_CLUSTER_PM_EXIT);
 }
