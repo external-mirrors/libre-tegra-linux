@@ -194,7 +194,7 @@ static void tegra_pm_set(enum tegra_suspend_mode mode)
 	tegra_pmc_enter_suspend_mode(mode);
 }
 
-int tegra_pm_enter_lp2(void)
+__cpuidle int tegra_pm_enter_lp2(void)
 {
 	int err;
 
