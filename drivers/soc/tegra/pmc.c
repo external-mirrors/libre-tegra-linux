@@ -4408,10 +4408,9 @@ static int __init tegra_pmc_early_init(void)
 		invert = of_property_read_bool(np, "nvidia,invert-interrupt");
 
 		pmc->soc->setup_irq_polarity(pmc, np, invert);
-
-		of_node_put(np);
 	}
 
+	of_node_put(np);
 	return 0;
 }
 early_initcall(tegra_pmc_early_init);
