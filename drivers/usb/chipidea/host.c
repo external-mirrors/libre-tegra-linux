@@ -411,8 +411,7 @@ static int ci_hdrc_alloc_dma_aligned_buffer(struct urb *urb, gfp_t mem_flags)
 
 	if (urb->num_sgs || urb->sg || urb->transfer_buffer_length == 0)
 		return 0;
-	if (IS_ALIGNED((uintptr_t)urb->transfer_buffer, 4)
-	    && IS_ALIGNED(urb->transfer_buffer_length, 4))
+	if (IS_ALIGNED((uintptr_t)urb->transfer_buffer, 4))
 		return 0;
 
 	temp = kmalloc(sizeof(*temp) + ALIGN(urb->transfer_buffer_length, 4), mem_flags);
