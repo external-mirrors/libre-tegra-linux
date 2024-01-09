@@ -1091,6 +1091,15 @@ static int tegra_mc_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (IS_ENABLED(CONFIG_TEGRA_IOMMU_GART) && !mc->soc->smmu) {
+		mc->gart = tegra_gart_probe(&pdev->dev, mc);
+		if (IS_ERR(mc->gart)) {
+			dev_err(&pdev->dev, "failed to probe GART: %ld\n",
+				PTR_ERR(mc->gart));
+			mc->gart = NULL;
+		}
+	}
+
 	return 0;
 }
 
@@ -1101,6 +1110,16 @@ static void tegra_mc_sync_state(struct device *dev)
 	/* check whether ICC provider is registered */
 	if (mc->provider.dev == dev)
 		icc_sync_state(dev);
+}
+
+static int tegra_mc_suspend(struct device *dev)
+{
+	struct tegra_mc *mc = dev_get_drvdata(dev);
+
+	if (mc->soc->ops && mc->soc->ops->suspend)
+		return mc->soc->ops->suspend(mc);
+
+	return 0;
 }
 
 static int tegra_mc_resume(struct device *dev)
@@ -1115,7 +1134,7 @@ static int tegra_mc_resume(struct device *dev)
 	return 0;
 }
 
-static DEFINE_SIMPLE_DEV_PM_OPS(tegra_mc_pm_ops, NULL, tegra_mc_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(tegra_mc_pm_ops, tegra_mc_suspend, tegra_mc_resume);
 
 static struct platform_driver tegra_mc_driver = {
 	.driver = {
