@@ -104,7 +104,7 @@ static inline bool gart_pte_valid(struct gart_device *gart, unsigned long iova)
 }
 
 static int gart_iommu_attach_dev(struct iommu_domain *domain,
-				 struct device *dev)
+				 struct device *dev, struct iommu_domain *old)
 {
 	struct gart_device *gart = gart_handle;
 	int ret = 0;
@@ -124,14 +124,18 @@ static int gart_iommu_attach_dev(struct iommu_domain *domain,
 	return ret;
 }
 
-static void gart_iommu_set_platform_dma(struct device *dev)
+static int gart_iommu_identity_attach(struct iommu_domain *identity_domain,
+				      struct device *dev,
+				      struct iommu_domain *old)
 {
-	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
 	struct gart_device *gart = gart_handle;
+
+	if (old == identity_domain || !old)
+		return 0;
 
 	spin_lock(&gart->dom_lock);
 
-	if (dev_iommu_priv_get(dev) == domain) {
+	if (dev_iommu_priv_get(dev) == old) {
 		dev_iommu_priv_set(dev, NULL);
 
 		if (--gart->active_devices == 0)
@@ -139,17 +143,27 @@ static void gart_iommu_set_platform_dma(struct device *dev)
 	}
 
 	spin_unlock(&gart->dom_lock);
+
+	return 0;
 }
 
-static struct iommu_domain *gart_iommu_domain_alloc(unsigned type)
+static struct iommu_domain_ops gart_iommu_identity_ops = {
+	.attach_dev = gart_iommu_identity_attach,
+};
+
+static struct iommu_domain gart_iommu_identity_domain = {
+	.type = IOMMU_DOMAIN_IDENTITY,
+	.ops = &gart_iommu_identity_ops,
+};
+
+static struct iommu_domain *gart_iommu_domain_alloc_paging(struct device *dev)
 {
 	struct iommu_domain *domain;
 
-	if (type != IOMMU_DOMAIN_UNMANAGED)
-		return NULL;
-
 	domain = kzalloc(sizeof(*domain), GFP_KERNEL);
 	if (domain) {
+		domain->pgsize_bitmap = GART_IOMMU_PGSIZES;
+
 		domain->geometry.aperture_start = gart_handle->iovmm_base;
 		domain->geometry.aperture_end = gart_handle->iovmm_end - 1;
 		domain->geometry.force_aperture = true;
@@ -178,7 +192,8 @@ static inline int __gart_iommu_map(struct gart_device *gart, unsigned long iova,
 }
 
 static int gart_iommu_map(struct iommu_domain *domain, unsigned long iova,
-			  phys_addr_t pa, size_t bytes, int prot, gfp_t gfp)
+			  phys_addr_t pa, size_t bytes, size_t count,
+			  int prot, gfp_t gfp, size_t *mapped)
 {
 	struct gart_device *gart = gart_handle;
 	int ret;
@@ -189,6 +204,9 @@ static int gart_iommu_map(struct iommu_domain *domain, unsigned long iova,
 	spin_lock(&gart->pte_lock);
 	ret = __gart_iommu_map(gart, iova, (unsigned long)pa);
 	spin_unlock(&gart->pte_lock);
+
+	if (!ret)
+		*mapped = bytes;
 
 	return ret;
 }
@@ -207,7 +225,7 @@ static inline int __gart_iommu_unmap(struct gart_device *gart,
 }
 
 static size_t gart_iommu_unmap(struct iommu_domain *domain, unsigned long iova,
-			       size_t bytes, struct iommu_iotlb_gather *gather)
+			       size_t bytes, size_t count, struct iommu_iotlb_gather *gather)
 {
 	struct gart_device *gart = gart_handle;
 	int err;
@@ -247,15 +265,16 @@ static struct iommu_device *gart_iommu_probe_device(struct device *dev)
 }
 
 static int gart_iommu_of_xlate(struct device *dev,
-			       struct of_phandle_args *args)
+			       const struct of_phandle_args *args)
 {
 	return 0;
 }
 
-static void gart_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
+static int gart_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 				size_t size)
 {
 	FLUSH_GART_REGS(gart_handle);
+	return 0;
 }
 
 static void gart_iommu_sync(struct iommu_domain *domain,
@@ -266,17 +285,27 @@ static void gart_iommu_sync(struct iommu_domain *domain,
 	gart_iommu_sync_map(domain, gather->start, length);
 }
 
+static int gart_iommu_def_domain_type(struct device *dev)
+{
+	/*
+	 * FIXME: For now we want to run all translation in IDENTITY mode, due
+	 * to some device quirks. Better would be to just quirk the troubled
+	 * devices.
+	 */
+	return IOMMU_DOMAIN_IDENTITY;
+}
+
 static const struct iommu_ops gart_iommu_ops = {
-	.domain_alloc	= gart_iommu_domain_alloc,
+	.identity_domain = &gart_iommu_identity_domain,
+	.def_domain_type = &gart_iommu_def_domain_type,
+	.domain_alloc_paging = gart_iommu_domain_alloc_paging,
 	.probe_device	= gart_iommu_probe_device,
 	.device_group	= generic_device_group,
-	.set_platform_dma_ops = gart_iommu_set_platform_dma,
-	.pgsize_bitmap	= GART_IOMMU_PGSIZES,
 	.of_xlate	= gart_iommu_of_xlate,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
 		.attach_dev	= gart_iommu_attach_dev,
-		.map		= gart_iommu_map,
-		.unmap		= gart_iommu_unmap,
+		.map_pages	= gart_iommu_map,
+		.unmap_pages	= gart_iommu_unmap,
 		.iova_to_phys	= gart_iommu_iova_to_phys,
 		.iotlb_sync_map	= gart_iommu_sync_map,
 		.iotlb_sync	= gart_iommu_sync,
@@ -315,6 +344,10 @@ struct gart_device *tegra_gart_probe(struct device *dev, struct tegra_mc *mc)
 	struct gart_device *gart;
 	struct resource *res;
 	int err;
+
+	/* upstream DRM driver will fail with GART */
+	if (IS_ENABLED(CONFIG_DRM_TEGRA_ORIG))
+		return 0;
 
 	BUILD_BUG_ON(PAGE_SHIFT != GART_PAGE_SHIFT);
 
