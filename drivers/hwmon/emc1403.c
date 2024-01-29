@@ -708,10 +708,26 @@ static const unsigned short emc1403_address_list[] = {
 	0x18, 0x1c, 0x29, 0x3c, 0x4c, 0x4d, 0x5c, I2C_CLIENT_END
 };
 
+static const struct of_device_id __maybe_unused emc1403_of_match[] = {
+	{ .compatible = "smsc,emc1402", .data = (void *)emc1402 },
+	{ .compatible = "smsc,emc1403", .data = (void *)emc1403 },
+	{ .compatible = "smsc,emc1404", .data = (void *)emc1404 },
+	{ .compatible = "smsc,emc1412", .data = (void *)emc1402 },
+	{ .compatible = "smsc,emc1413", .data = (void *)emc1403 },
+	{ .compatible = "smsc,emc1414", .data = (void *)emc1404 },
+	{ .compatible = "smsc,emc1422", .data = (void *)emc1402 },
+	{ .compatible = "smsc,emc1423", .data = (void *)emc1403 },
+	{ .compatible = "smsc,emc1424", .data = (void *)emc1404 },
+	{ }
+
+};
+MODULE_DEVICE_TABLE(of, emc1403_of_match);
+
 static struct i2c_driver sensor_emc1403 = {
 	.class = I2C_CLASS_HWMON,
 	.driver = {
 		.name = "emc1403",
+		.of_match_table = of_match_ptr(emc1403_of_match),
 	},
 	.detect = emc1403_detect,
 	.probe = emc1403_probe,
