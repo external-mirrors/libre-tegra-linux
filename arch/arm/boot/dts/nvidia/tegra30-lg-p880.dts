@@ -105,6 +105,12 @@
 		};
 	};
 
+	serial@70006040 {
+		gnss {
+			reset-gpios = <&gpio TEGRA_GPIO(R, 7) GPIO_ACTIVE_LOW>;
+		};
+	};
+
 	i2c@7000c400 {
 		touchscreen@20 {
 			rmi4-f11@11 {
@@ -112,6 +118,55 @@
 				syna,clip-y-high = <2560>;
 
 				touchscreen-inverted-y;
+			};
+		};
+	};
+
+	i2c@7000c500 {
+		/* front-camera@37 {
+			compatible = "sony,imx119";
+			reg = <0x37>;
+
+			clocks = <&cam_mclk>; // cam mclk is PCC0 gated
+			clock-names = "cam_mclk";
+
+			reset-gpios = <&gpio TEGRA_GPIO(BB, 5) GPIO_ACTIVE_LOW>;
+
+			vio-supply = <&vio_1v8_front>;
+			vdd-supply = <&vt_1v2_front>;
+			vana-supply = <&vt_2v7_front>;
+
+			port {
+				endpoint {
+					bus-type = <>;
+					link-frequencies = /bits/ 64 <>;
+					remote-endpoint = <>;
+				};
+			};
+		}; */
+	};
+
+	spi@7000dc00 {
+		dsi@2 {
+			/*
+			 * JDI 4.57" 720x1280 DX12D100VM0EAA MIPI DSI panel
+			 */
+			panel@1 {
+				compatible = "jdi,dx12d100vm0eaa";
+				reg = <1>;
+
+				reset-gpios = <&gpio TEGRA_GPIO(W, 0) GPIO_ACTIVE_LOW>;
+
+				vdd-supply = <&vcc_3v0_lcd>;
+				vddio-supply = <&iovcc_1v8_lcd>;
+
+				backlight = <&backlight>;
+
+				port {
+					panel_input: endpoint {
+						remote-endpoint = <&bridge_output>;
+					};
+				};
 			};
 		};
 	};
