@@ -103,6 +103,12 @@
 		};
 	};
 
+	serial@70006040 {
+		gnss {
+			reset-gpios = <&gpio TEGRA_GPIO(K, 5) GPIO_ACTIVE_LOW>;
+		};
+	};
+
 	i2c@7000c400 {
 		touchscreen@20 {
 			rmi4-f11@11 {

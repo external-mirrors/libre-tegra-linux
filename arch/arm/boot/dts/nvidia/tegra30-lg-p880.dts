@@ -12,18 +12,6 @@
 		mmc2 = &sdmmc1; /* WiFi */
 	};
 
-	host1x@50000000 {
-		vi@54080000 {
-			csi@800 {
-				/delete-node/ channel@1;
-			};
-
-			ports {
-				/delete-node/ port@1;
-			};
-		};
-	};
-
 	pinmux@70000868 {
 		pinctrl-names = "default";
 		pinctrl-0 = <&state_default>;
@@ -117,6 +105,12 @@
 		};
 	};
 
+	serial@70006040 {
+		gnss {
+			reset-gpios = <&gpio TEGRA_GPIO(R, 7) GPIO_ACTIVE_LOW>;
+		};
+	};
+
 	i2c@7000c400 {
 		touchscreen@20 {
 			rmi4-f11@11 {
@@ -129,6 +123,36 @@
 	};
 
 	i2c@7000c500 {
+		/* SONY IMX119 1/7.8" */
+		front-camera@37 {
+			compatible = "sony,imx119";
+			reg = <0x37>;
+
+			clocks = <&tegra_car TEGRA30_CLK_CSUS>;
+
+			reset-gpios = <&gpio TEGRA_GPIO(BB, 5) GPIO_ACTIVE_LOW>;
+
+			vio-supply = <&vio_1v8_front>;
+			vdd-supply = <&vt_1v2_front>;
+			vana-supply = <&vt_2v7_front>;
+
+			orientation = <0>; /* Front camera */
+
+			assigned-clocks = <&tegra_car TEGRA30_CLK_VI_SENSOR>,
+					  <&tegra_car TEGRA30_CLK_CSUS>;
+			assigned-clock-rates = <24000000>;
+			assigned-clock-parents = <&tegra_car TEGRA30_CLK_PLL_P>,
+						 <&tegra_car TEGRA30_CLK_VI_SENSOR>;
+
+			port {
+				front_camera_output: endpoint {
+					bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+					link-frequencies = /bits/ 64 <384000000>;
+					remote-endpoint = <&csib_input>;
+				};
+			};
+		};
+
 		camera-pmic@7d {
 			vt_1v2_front: ldo1 {
 				regulator-name = "vt_1v2_dig";
@@ -157,6 +181,8 @@
 
 				vdd-supply = <&vcc_3v0_lcd>;
 				vddio-supply = <&iovcc_1v8_lcd>;
+
+				backlight = <&backlight>;
 
 				port {
 					panel_input: endpoint {
