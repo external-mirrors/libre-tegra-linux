@@ -3,6 +3,7 @@
 #include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/media/video-interfaces.h>
 #include <dt-bindings/mfd/max77620.h>
 #include <dt-bindings/thermal/thermal.h>
 
@@ -19,6 +20,9 @@
 
 		rtc0 = &pmic;
 		rtc1 = "/rtc@7000e000";
+
+		display0 = &lcd;
+//		display1 = &hdmi;
 
 		serial0 = &uartd; /* Console */
 		serial1 = &uartc; /* Bluetooth */
@@ -69,6 +73,77 @@
 			reg = <0xbfe00000 0x200000>;	/* 2MB */
 			no-map;
 		};
+	};
+
+	host1x@50000000 {
+#if 0
+		vi@54080000 {
+			status = "okay";
+
+			avdd-dsi-csi-supply = <&avdd_dsi_csi>;
+
+			csi@800 {
+				status = "okay";
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/* CSI-A */
+				channel@0 {
+					reg = <0>;
+
+					port {
+						csia_input: endpoint {
+							remote-endpoint = <&rear_camera_output>;
+						};
+					};
+				};
+
+				/* CSI-B */
+				channel@1 {
+					reg = <1>;
+
+					port {
+						csib_input: endpoint {
+							remote-endpoint = <&front_camera_output>;
+						};
+					};
+				};
+			};
+		};
+#endif
+
+		lcd: dc@54200000 {
+			rgb {
+				status = "okay";
+
+				port {
+					dpi_output: endpoint {
+						remote-endpoint = <&bridge_input>;
+						bus-width = <24>;
+					};
+				};
+			};
+		};
+
+#if 0
+		hdmi: hdmi@54280000 {
+			status = "okay";
+
+			hdmi-supply = <&vdd_5v0_vbus>;
+			pll-supply = <&avdd_1v8_hdmi_pll>;
+			vdd-supply = <&avdd_3v3_periph>;
+
+			nvidia,ddc-i2c-bus = <&hdmi_ddc>;
+			nvidia,hpd-gpios = <&gpio TEGRA_GPIO(N, 7) GPIO_ACTIVE_HIGH>;
+
+			port {
+				hdmi_out: endpoint {
+					remote-endpoint = <&mhl_bridge_input>;
+				};
+			};
+		};
+#endif
 	};
 
 	vde@6001a000 {
@@ -916,7 +991,23 @@
 		/delete-property/ reg-shift;
 		status = "okay";
 
+		nvidia,adjust-baud-rates = <0 9600 100>,
+					   <9600 115200 200>,
+					   <1000000 4000000 136>;
+
 		/* GNSS GSD5T */
+		gnss {
+			compatible = "csr,gsd5t";
+			current-speed = <115200>;
+
+			clocks = <&gps_osc>;
+			clock-names = "ref_clk";
+
+			power-gpios = <&gpio TEGRA_GPIO(R, 6) GPIO_ACTIVE_HIGH>;
+
+			vcc-supply = <&vcc_1v8_gps>;
+			vio-supply = <&vdd_1v8_vio>;
+		};
 	};
 
 	uartc: serial@70006200 {
@@ -1003,6 +1094,20 @@
 			firmware-gpios = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_HIGH>;
 		};
 
+		light-sensor@39 {
+			compatible = "avago,apds990x";
+			reg = <0x39>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(K, 2) IRQ_TYPE_EDGE_RISING>;
+
+			vdd-supply = <&vdd_3v0_proxi>;
+			vled-supply = <&vdd_1v8_sen>;
+
+			avago,pdrive = <0x00>;
+			avago,ppcount = <0x03>;
+		};
+
 		imu@68 {
 			compatible = "invensense,mpu6050";
 			reg = <0x68>;
@@ -1052,6 +1157,113 @@
 				syna,clip-x-low = <0>;
 				syna,clip-y-low = <0>;
 			};
+
+			rmi4-f1a@1a {
+				reg = <0x1a>;
+
+				key-menu {
+					label = "Menu";
+					linux,code = <KEY_MENU>;
+				};
+
+				key-home {
+					label = "Home";
+					linux,code = <KEY_HOME>;
+				};
+
+				key-back {
+					label = "Back";
+					linux,code = <KEY_BACK>;
+				};
+			};
+		};
+
+		backlight: led-controller@36 {
+			compatible = "ti,lm3533";
+			reg = <0x36>;
+
+			enable-gpios = <&gpio TEGRA_GPIO(N, 6) GPIO_ACTIVE_HIGH>;
+
+			ti,boost-ovp-microvolt = <24000000>;
+			ti,boost-freq-hz = <500000>;
+
+			backlight-0 {
+				compatible = "ti,lm3533-backlight";
+
+				ti,max-current-microamp = <23400>;
+				ti,linear-mapping-mode;
+				ti,hardware-controlled;
+			};
+
+			backlight-1 {
+				compatible = "ti,lm3533-backlight";
+				status = "disabled";
+			};
+
+			led-0 {
+				compatible = "ti,lm3533-leds";
+				status = "disabled";
+			};
+
+			led-1 {
+				compatible = "ti,lm3533-leds";
+				status = "disabled";
+			};
+
+			led-2 {
+				compatible = "ti,lm3533-leds";
+				status = "disabled";
+			};
+
+			led-3 {
+				compatible = "ti,lm3533-leds";
+				status = "disabled";
+			};
+
+			light-sensor {
+				compatible = "ti,lm3533-als";
+				status = "disabled";
+			};
+		};
+
+		max14526: muic@44 {
+			compatible = "maxim,max14526";
+			reg = <0x44>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(J, 0) IRQ_TYPE_EDGE_FALLING>;
+
+//			usif-gpios = <&gpio TEGRA_GPIO(Y, 3) GPIO_ACTIVE_HIGH>;
+//			dp2t-gpios = <&gpio TEGRA_GPIO(CC, 2) GPIO_ACTIVE_HIGH>;
+
+			muic_con: connector {
+				compatible = "usb-b-connector";
+				label = "micro-USB";
+				type = "micro";
+			};
+
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				muic_to_charger: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&charger_input>;
+				};
+
+//				muic_to_mhl: endpoint@1 {
+//					reg = <1>;
+//					remote-endpoint = <&mhl_bridge_output>;
+//				};
+			};
+		};
+
+		tsc2007: adc@48 {
+			compatible = "ti,tsc2007";
+			reg = <0x48>;
+
+			ti,x-plate-ohms = <1>;
+			#io-channel-cells = <1>;
 		};
 	};
 
@@ -1068,23 +1280,87 @@
 			vcc-supply = <&vcc_focuser>;
 		};
 
+#if 0
+		/* SONY IMX111 1/4" BSI */
+		rear-camera@10 {
+			compatible = "sony,imx111";
+			reg = <0x10>;
+
+			clocks = <&cam_mclk_gate>; // TODO: verify
+			clock-names = "cam_mclk";
+
+			reset-gpios = <&gpio TEGRA_GPIO(K, 4) GPIO_ACTIVE_LOW>;
+
+			vio-supply = <&vio_1v8_rear>;
+			vdd-supply = <&vdd_1v2_rear>;
+			vana-supply = <&vdd_2v7_rear>;
+
+			orientation = <1>; /* Rear camera */
+
+			eeprom = <&m24c08>;
+			flash-leds = <&lm3559>;
+			lens-focus = <&dw9714>;
+
+			port {
+				rear_camera_output: endpoint {
+					data-lanes = <1 2>;
+					bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+					link-frequencies = /bits/ 64 <384000000>; // TODO: verify
+					remote-endpoint = <&csia_input>;
+				};
+			};
+		};
+
+		/* rear camera sensor eeprom */
+		m24c08: eeprom@50 {
+			compatible = "st,m24c08", "atmel,24c08";
+			reg = <0x50>;
+
+			/* if high then WP is on, if low then off */
+			wp-gpios = <&gpio TEGRA_GPIO(K, 3) GPIO_ACTIVE_HIGH>;
+
+			/* it is not OTP but writing is unwanted */
+			read-only;
+			pagesize = <16>;
+			num-addresses = <1>;
+
+			vcc-supply = <&vio_1v8_rear>;
+		};
+#endif
+
+		lm3559: flash-led@53 {
+			compatible = "ti,lm3559";
+			reg = <0x53>;
+
+			enable-gpios = <&gpio TEGRA_GPIO(BB, 3) GPIO_ACTIVE_HIGH>;
+
+			ti,peak-current = <0>; /* 1600mA */
+			ti,max-flash-timeout-ms = <1024>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* single flash led is on 2 lines */
+			led@0 {
+				reg = <0>;
+
+				ti,max-flash-current-microamp = <562500>;
+				ti,max-torch-current-microamp = <156250>;
+			};
+
+			led@1 {
+				reg = <1>;
+
+				ti,max-flash-current-microamp = <562500>;
+				ti,max-torch-current-microamp = <156250>;
+			};
+		};
+
 		camera-pmic@7d {
 			compatible = "ti,lp8720";
 			reg = <0x7d>;
 
 			enable-gpios = <&gpio TEGRA_GPIO(BB, 4) GPIO_ACTIVE_HIGH>;
-
-			vt_1v2_front: ldo1 {
-				regulator-name = "vt_1v2_dig";
-				regulator-min-microvolt = <1200000>;
-				regulator-max-microvolt = <1200000>;
-			};
-
-			vt_2v7_front: ldo2 {
-				regulator-name = "vt_2v7_vana";
-				regulator-min-microvolt = <2700000>;
-				regulator-max-microvolt = <2700000>;
-			};
 
 			vdd_2v7_rear: ldo3 {
 				regulator-name = "8m_2v7_vana";
@@ -1133,6 +1409,7 @@
 			gpio-controller;
 
 			system-power-controller;
+			maxim,rtc-i2c-address = <0x48>; // make this a node?
 
 			pinctrl-names = "default";
 			pinctrl-0 = <&max77663_default>;
@@ -1295,16 +1572,35 @@
 					regulator-name = "vdd_1v2_mhl";
 					regulator-min-microvolt = <1050000>;
 					regulator-max-microvolt = <1250000>;
+					// remove always on once sii9234 is set
+					regulator-always-on;
 
 					maxim,active-fps-source = <MAX77620_FPS_SRC_NONE>;
 				};
 
-				ldo8 {
+				avdd_dsi_csi: ldo8 {
 					regulator-name = "avdd_dsi_csi";
 					regulator-min-microvolt = <1200000>;
 					regulator-max-microvolt = <1200000>;
+					regulator-boot-on;
 
 					maxim,active-fps-source = <MAX77620_FPS_SRC_NONE>;
+				};
+			};
+		};
+
+		max8971: charger@35 {
+			compatible = "maxim,max8971";
+			reg = <0x35>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(J, 2) IRQ_TYPE_LEVEL_LOW>;
+
+			monitored-battery = <&battery>;
+
+			port {
+				charger_input: endpoint {
+					remote-endpoint = <&muic_to_charger>;
 				};
 			};
 		};
@@ -1317,6 +1613,10 @@
 			interrupts = <TEGRA_GPIO(S, 0) IRQ_TYPE_EDGE_FALLING>;
 
 			monitored-battery = <&battery>;
+			power-supplies = <&max8971>;
+
+			io-channels = <&tbattery 0>;
+			io-channel-names = "temp";
 
 			maxim,alert-low-soc-level = <10>;
 			wakeup-source;
@@ -1327,6 +1627,15 @@
 			reg = <0x40>;
 
 			vs-supply = <&vdd_3v0_sen>;
+		};
+
+		haptic-engine@49 {
+			compatible = "immersion,isa1200-x3";
+			reg = <0x49>;
+
+			hen-gpios = <&gpio TEGRA_GPIO(H, 1) GPIO_ACTIVE_HIGH>;
+			pwms = <&pwm 3 50000>;
+			duty-ns = <1250>;
 		};
 
 		nct72: temperature-sensor@4c {
@@ -1351,13 +1660,103 @@
 
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+#if 0
+		hdmi-bridge@39 {
+			compatible = "sil,sii9244";
+			reg = <0x39>;
+
+			avcc33-supply = <&vdd_3v3_vbat>;
+			iovcc18-supply = <&vio_1v8_mhl>;
+			avcc12-supply = <&vdd_1v2_mhl>;
+			cvcc12-supply = <&vdd_1v2_mhl>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(V, 7) IRQ_TYPE_LEVEL_HIGH>;
+
+			reset-gpios = <&gpio TEGRA_GPIO(EE, 1) GPIO_ACTIVE_LOW>;
+			sel-gpios = <&gpio TEGRA_GPIO(S, 2) GPIO_ACTIVE_HIGH>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					mhl_bridge_input: endpoint {
+						remote-endpoint = <&hdmi_out>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					mhl_bridge_output: endpoint {
+						remote-endpoint = <&muic_to_mhl>;
+					};
+				};
+			};
+		};
+#endif
 	};
 
 	spi@7000dc00 {
 		status = "okay";
 		spi-max-frequency = <25000000>;
 
-		/* DSI bridge */
+		dsi@2 {
+			compatible = "solomon,ssd2825";
+			reg = <2>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			spi-max-frequency = <1000000>;
+
+			spi-cpha;
+			spi-cpol;
+
+			reset-gpios = <&gpio TEGRA_GPIO(O, 2) GPIO_ACTIVE_LOW>;
+
+			dvdd-supply = <&vdd_1v2_rgb>;
+			avdd-supply = <&vdd_1v2_rgb>;
+			vddio-supply = <&vdd_1v8_vio>;
+
+			solomon,hs-zero-delay-ns = <300>;
+			solomon,hs-prep-delay-ns = <65>;
+
+			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_3>;
+
+			assigned-clocks = <&tegra_car TEGRA30_CLK_EXTERN3>,
+					  <&tegra_pmc TEGRA_PMC_CLK_OUT_3>;
+			assigned-clock-rates = <24000000>;
+
+			assigned-clock-parents = <&tegra_car TEGRA30_CLK_PLL_P>,
+						 <&tegra_car TEGRA30_CLK_EXTERN3>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					bridge_input: endpoint {
+						remote-endpoint = <&dpi_output>;
+						data-lines = <24>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					bridge_output: endpoint {
+						remote-endpoint = <&panel_input>;
+					};
+				};
+			};
+		};
 	};
 
 	pmc@7000e400 {
@@ -1446,17 +1845,63 @@
 	usb@7d000000 {
 		compatible = "nvidia,tegra30-udc";
 		status = "okay";
-		dr_mode = "peripheral";
+		dr_mode = "otg";
+		extcon = <&max14526>, <&max14526>;
 	};
 
 	usb-phy@7d000000 {
 		status = "okay";
-		dr_mode = "peripheral";
+		dr_mode = "otg";
 		nvidia,hssync-start-delay = <0>;
 		nvidia,xcvr-lsfslew = <2>;
 		nvidia,xcvr-lsrslew = <2>;
 		vbus-supply = <&avdd_3v3_periph>;
 	};
+
+#if 0
+	/* Modem line */
+	usb@7d004000 {
+		status = "okay";
+		phy_type = "hsic";
+	};
+
+	usb-phy@7d004000 {
+		status = "okay";
+		phy_type = "hsic";
+		clocks = <&tegra_car TEGRA30_CLK_USB2>,
+			 <&tegra_car TEGRA30_CLK_PLL_U>,
+			 <&tegra_car TEGRA30_CLK_USB2>;
+		clock-names = "reg", "pll_u", "hsic-clk";
+
+		nvidia,phy-enable-gpio = <&gpio TEGRA_GPIO(U, 5)
+			GPIO_ACTIVE_HIGH>;
+	};
+
+	modem-power {
+		compatible = "infineon,xmm6260-power";
+
+		enable-gpios = <&gpio TEGRA_GPIO(O, 0) GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio TEGRA_GPIO(V, 1) GPIO_ACTIVE_LOW>;
+
+		link-slavewake = <&gpio TEGRA_GPIO(S, 7) GPIO_ACTIVE_HIGH>;
+		link-hostwake = <&gpio TEGRA_GPIO(V, 0) GPIO_ACTIVE_HIGH>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <TEGRA_GPIO(V, 0) IRQ_TYPE_EDGE_BOTH>;
+
+		vbus-supply = <&vbus_3v3_modem>;
+	};
+
+	vbus_3v3_modem: regulator-modem {
+		compatible = "regulator-fixed";
+		regulator-name = "vbus_3v3_modem";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+//		gpio = <&gpio TEGRA_GPIO(R, 4) GPIO_ACTIVE_HIGH>; // TODO: test
+//		enable-active-high;
+		vin-supply = <&vdd_3v3_vbat>;
+	};
+#endif
 
 	/* PMIC has a built-in 32KHz oscillator which is used by PMC */
 	clk32k_in: clock-32k {
@@ -1464,6 +1909,20 @@
 		#clock-cells = <0>;
 		clock-frequency = <32768>;
 		clock-output-names = "pmic-oscillator";
+	};
+
+	cam_mclk: clock-cam-mclk {
+		compatible = "fixed-clock";
+		clock-frequency = <15000000>; // TODO: verify and adjust
+		clock-accuracy = <100>;
+		#clock-cells = <0>;
+	};
+
+	cam_mclk_gate: clock-cam-mclk-gate {
+		compatible = "gpio-gate-clock";
+		enable-gpios = <&gpio TEGRA_GPIO(CC, 0) GPIO_ACTIVE_HIGH>;
+		clocks = <&cam_mclk>;
+		#clock-cells = <0>;
 	};
 
 	gps_refclk: clock-gps {
@@ -1617,6 +2076,17 @@
 		vin-supply = <&vdd_3v3_vbat>;
 	};
 
+	vdd_1v2_rgb: regulator-rgb1v2 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_1v2_rgb";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-boot-on;
+		gpio = <&gpio TEGRA_GPIO(B, 1) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&vdd_3v3_vbat>;
+	};
+
 	vcc_3v0_lcd: regulator-lcd3v {
 		compatible = "regulator-fixed";
 		regulator-name = "vcc_3v0_lcd";
@@ -1643,6 +2113,8 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		regulator-boot-on;
+		// remove always on once sii9234 is set
+		regulator-always-on;
 		gpio = <&gpio TEGRA_GPIO(V, 2) GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		vin-supply = <&vdd_3v3_vbat>;
@@ -1722,6 +2194,21 @@
 
 		assigned-clock-parents = <&tegra_car TEGRA30_CLK_PLL_A_OUT0>,
 					 <&tegra_car TEGRA30_CLK_EXTERN1>;
+	};
+
+	tbattery: thermal-sensor-battery {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+
+		io-channels = <&tsc2007 4>;
+		io-channel-names = "sensor-channel";
+		#io-channel-cells = <1>;
+
+		temperature-lookup-table = <
+			(-50000) 4100 (-40000) 3980 (-30000) 3815 (-20000) 3610
+			(-10000) 3285        0 2880    10000 2445    20000 1955
+			   30000 1440    40000 1125    50000  840    60000  665
+			   70000  465    80000  350    90000  230   100000  185 >;
 	};
 
 	thermal-zones {
@@ -1805,6 +2292,27 @@
 							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 							 <&actmon THERMAL_NO_LIMIT
 								  THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		battery-thermal {
+			polling-delay-passive = <0>; /* milliseconds */
+			polling-delay = <20000>; /* milliseconds */
+
+			thermal-sensors = <&tbattery>;
+
+			trips {
+				battery-alert {
+					temperature = <55000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+
+				battery-crit {
+					temperature = <60000>;
+					hysteresis = <2000>;
+					type = "critical";
 				};
 			};
 		};
