@@ -103,6 +103,12 @@
 		};
 	};
 
+	serial@70006040 {
+		gnss {
+			reset-gpios = <&gpio TEGRA_GPIO(K, 5) GPIO_ACTIVE_LOW>;
+		};
+	};
+
 	i2c@7000c400 {
 		touchscreen@20 {
 			rmi4-f11@11 {
@@ -114,6 +120,51 @@
 				reg = <0x1a>;
 
 				linux,keycodes = <KEY_BACK KEY_HOME KEY_MENU KEY_SEARCH>;
+			};
+		};
+	};
+
+	i2c@7000c500 {
+		/* Aptina 1/6" HD SOC (MT9M114) */
+		front-camera@48 {
+			compatible = "onnn,mt9m114";
+			reg = <0x48>;
+
+			clocks = <&tegra_car TEGRA30_CLK_VI_SENSOR>;
+
+			reset-gpios = <&gpio TEGRA_GPIO(BB, 5) GPIO_ACTIVE_LOW>;
+
+			vddio-supply = <&vio_1v8_front>;
+			vdd-supply = <&vt_1v8_front>;
+			vaa-supply = <&vt_2v8_front>;
+
+			orientation = <0>; /* Front camera */
+
+			assigned-clocks = <&tegra_car TEGRA30_CLK_VI_SENSOR>;
+			assigned-clock-rates = <24000000>;
+			assigned-clock-parents = <&tegra_car TEGRA30_CLK_PLL_P>;
+
+			port {
+				front_camera_output: endpoint {
+					data-lanes = <3>;
+					bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+					link-frequencies = /bits/ 64 <384000000>;
+//					remote-endpoint = <&csib_input>;
+				};
+			};
+		};
+
+		camera-pmic@7d {
+			vt_1v8_front: ldo1 {
+				regulator-name = "vt_1v8_dig";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+
+			vt_2v8_front: ldo2 {
+				regulator-name = "vt_2v8_vana";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
 			};
 		};
 	};
