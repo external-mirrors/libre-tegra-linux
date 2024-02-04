@@ -223,16 +223,6 @@ static int lm3533_set_lvled_config(struct lm3533 *lm3533, u8 lvled, u8 led)
 	return ret;
 }
 
-static void lm3533_enable(struct lm3533 *lm3533)
-{
-	gpiod_set_value(lm3533->hwen, 1);
-}
-
-static void lm3533_disable(struct lm3533 *lm3533)
-{
-	gpiod_set_value(lm3533->hwen, 0);
-}
-
 enum lm3533_attribute_type {
 	LM3533_ATTR_TYPE_BACKLIGHT,
 	LM3533_ATTR_TYPE_LED,
@@ -481,12 +471,11 @@ static int lm3533_device_init(struct lm3533 *lm3533)
 		return -EINVAL;
 	}
 
-	lm3533->hwen = devm_gpiod_get(lm3533->dev, NULL, GPIOD_OUT_LOW);
+	lm3533->hwen = devm_gpiod_get_optional(lm3533->dev, "enable",
+					       GPIOD_OUT_HIGH);
 	if (IS_ERR(lm3533->hwen))
-		return dev_err_probe(lm3533->dev, PTR_ERR(lm3533->hwen), "failed to request HWEN GPIO\n");
-	gpiod_set_consumer_name(lm3533->hwen, "lm3533-hwen");
-
-	lm3533_enable(lm3533);
+		return dev_err_probe(lm3533->dev, IS_ERR(lm3533->hwen),
+				     "failed to request enable gpio\n");
 
 	ret = lm3533_device_setup(lm3533, pdata);
 	if (ret)
@@ -507,7 +496,7 @@ static int lm3533_device_init(struct lm3533 *lm3533)
 err_unregister:
 	mfd_remove_devices(lm3533->dev);
 err_disable:
-	lm3533_disable(lm3533);
+	gpiod_set_value_cansleep(lm3533->hwen, 0);
 
 	return ret;
 }
@@ -519,7 +508,7 @@ static void lm3533_device_exit(struct lm3533 *lm3533)
 	sysfs_remove_group(&lm3533->dev->kobj, &lm3533_attribute_group);
 
 	mfd_remove_devices(lm3533->dev);
-	lm3533_disable(lm3533);
+	gpiod_set_value_cansleep(lm3533->hwen, 0);
 }
 
 static bool lm3533_readable_register(struct device *dev, unsigned int reg)
