@@ -121,6 +121,14 @@ static int emc1403_detect(struct i2c_client *client,
 	return 0;
 }
 
+static irqreturn_t emc1403_irq_thread(int irq, void *dev_id)
+{
+	struct i2c_client *client = dev_id;
+
+	dev_info(&client->dev, "emc1403_irq_thread called\n");
+	return IRQ_HANDLED;
+}
+
 static bool emc1403_regmap_is_volatile(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
@@ -708,7 +716,20 @@ static int emc1403_probe(struct i2c_client *client)
 							 client->name, data,
 							 &emc1403_chip_info,
 							 emc1403_groups);
-	return PTR_ERR_OR_ZERO(hwmon_dev);
+	if (IS_ERR(hwmon_dev))
+		return PTR_ERR(hwmon_dev);
+
+	if (client->irq) {
+		err = devm_request_threaded_irq(&client->dev, client->irq,
+						NULL, emc1403_irq_thread,
+						IRQF_ONESHOT, "emc1403", client);
+		if (err < 0)
+			dev_err_probe(&client->dev, err,
+				      "cannot request IRQ %d\n", client->irq);
+	}
+
+	dev_info(&client->dev, "%s Thermal chip found\n", id->name);
+	return 0;
 }
 
 static const unsigned short emc1403_address_list[] = {
