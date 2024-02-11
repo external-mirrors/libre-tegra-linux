@@ -19,6 +19,7 @@
 #include <linux/sysfs.h>
 #include <linux/mutex.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 
 #define THERMAL_PID_REG		0xfd
 #define THERMAL_SMSC_ID_REG	0xfe
@@ -393,6 +394,12 @@ static int emc1403_probe(struct i2c_client *client)
 	struct thermal_data *data;
 	struct device *hwmon_dev;
 	const struct i2c_device_id *id = i2c_match_id(emc1403_idtable, client);
+	int err;
+
+	err = devm_regulator_get_enable(&client->dev, "vdd");
+	if (err)
+		return dev_err_probe(&client->dev, err,
+				     "Failed to enable regulator\n");
 
 	data = devm_kzalloc(&client->dev, sizeof(struct thermal_data),
 			    GFP_KERNEL);
