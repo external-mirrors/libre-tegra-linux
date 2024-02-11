@@ -645,7 +645,8 @@ static int tegra_kbc_probe(struct platform_device *pdev)
 	kbc->idev->open = tegra_kbc_open;
 	kbc->idev->close = tegra_kbc_close;
 
-	if (kbc->keymap_data && kbc->use_fn_map)
+	kbc->use_fn_map = device_property_read_bool(&pdev->dev, "linux,fn-keymap");
+	if (kbc->use_fn_map)
 		keymap_rows *= 2;
 
 	err = matrix_keypad_build_keymap(kbc->keymap_data, NULL,
