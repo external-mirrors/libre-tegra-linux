@@ -2,6 +2,9 @@
 dtb-$(CONFIG_ARCH_TEGRA_114_SOC) += \
 	tegra114-asus-tf701t.dtb \
 	tegra114-dalmore.dtb \
+	tegra114-microsoft-surface-2-0b.dtb \
+	tegra114-microsoft-surface-2-13.dtb \
+	tegra114-microsoft-surface-2-efi.dtb \
 	tegra114-roth.dtb \
 	tegra114-tn7.dtb
 dtb-$(CONFIG_ARCH_TEGRA_124_SOC) += \
