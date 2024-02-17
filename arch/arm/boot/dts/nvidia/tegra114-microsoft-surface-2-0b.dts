@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/dts-v1/;
+
+#include "tegra114-microsoft-surface-2-common.dtsi"
+
+/ {
+	/* Add differences here */
+};

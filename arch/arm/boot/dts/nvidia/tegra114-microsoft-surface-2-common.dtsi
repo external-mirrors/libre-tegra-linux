@@ -1,0 +1,753 @@
+// SPDX-License-Identifier: GPL-2.0
+
+#include <dt-bindings/input/input.h>
+#include "tegra114.dtsi"
+
+/ {
+	model = "Microsoft Surface 2";
+	compatible = "microsoft,surface-2", "nvidia,tegra114";
+	chassis-type = "convertible";
+
+	aliases {
+		mmc0 = &sdmmc4; /* eMMC */
+		mmc1 = &sdmmc3; /* uSD slot */
+		mmc2 = &sdmmc1; /* WiFi */
+
+		rtc0 = &palmas;
+		rtc1 = "/rtc@7000e000";
+
+		display0 = &lcd;
+
+		serial0 = &uarta; /* console */
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@80000000 {
+		reg = <0x80000000 0x80000000>;
+	};
+
+	host1x@50000000 {
+		lcd: dsi@54300000 {
+			status = "okay";
+
+			avdd-dsi-csi-supply = <&avdd_dsi_csi>; // UEFI says no to this.
+
+			panel@0 {
+				compatible = "samsung,ltl106hl02-001";
+				reg = <0>;
+
+				// FET4 doesn't control backlight but it is needed for the display to work??
+				power-supply = <&tps65090_fet4>; // tps65090_fet4
+				backlight = <&backlight>;
+				
+				// Datasheet is not sure about reset pin and APX doesn't need it
+				//reset-gpios = <&gpio TEGRA_GPIO(K, 5) GPIO_ACTIVE_HIGH>;
+			};
+		};
+	};
+
+	pinmux@70000868 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&state_default>;
+
+		state_default: pinmux {
+			/* UART A RX ??? */
+			sdmmc3_cmd_pa7 {
+				nvidia,pins = "sdmmc3_cmd_pa7";
+				nvidia,function = "uarta";
+				nvidia,pull = <TEGRA_PIN_PULL_UP>;
+				nvidia,tristate = <TEGRA_PIN_ENABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+
+			/* UART A TX */
+			sdmmc3_dat1_pb6 {
+				nvidia,pins = "sdmmc3_dat1_pb6";
+				nvidia,function = "uarta";
+				nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+				nvidia,tristate = <TEGRA_PIN_DISABLE>;
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+			};
+
+			panel-backlight {
+				nvidia,pins = "gmi_ad8_ph0";
+				nvidia,function = "pwm0";
+				nvidia,pull = <TEGRA_PIN_PULL_NONE>;
+				nvidia,tristate = <TEGRA_PIN_DISABLE>;
+				nvidia,enable-input = <TEGRA_PIN_DISABLE>;
+			};
+		};
+	};
+
+	uarta: serial@70006000 {
+		/delete-property/ dmas;
+		/delete-property/ dma-names;
+		status = "okay";
+	};
+
+	pwm@7000a000 {
+		status = "okay";
+	};
+
+	gen1_i2c: i2c@7000c000 {
+		status = "okay";
+		clock-frequency = <400000>;
+
+		/* Sensor Collection at 0x28 */
+		sensor@28 {
+			compatible = "hid-over-i2c";
+			reg = <0x28>;
+
+			hid-descr-addr = <0x0001>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(BB, 6) IRQ_TYPE_LEVEL_LOW>;
+
+			// vdd-supply = <&vdd_2v8_sen>;
+			// vddl-supply = <&vddio_1v8_sen>;
+		};
+	};
+
+	// Works for APX but only after replug. Not immediately after boot.
+	// Not acceptable for now.
+	i2c-cover {
+		compatible = "i2c-hotplug-gpio";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <TEGRA_GPIO(S, 0) IRQ_TYPE_EDGE_BOTH>;
+		detect-gpios = <&gpio TEGRA_GPIO(S, 0) GPIO_ACTIVE_HIGH>;
+
+		i2c-parent = <&gen1_i2c>;
+
+		cover@0 {
+			compatible = "hid-over-i2c";
+			reg = <0x00>;
+
+			hid-descr-addr = <0x0041>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(C, 7) IRQ_TYPE_LEVEL_LOW>;
+
+			//vdd-supply = <&sensor_hub_reg>;
+		};
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+		
+		// Doesn't work for APX. Device doesn't show up at all or disconnects
+		touchscreen@4b {
+			compatible = "hid-over-i2c";
+			reg = <0x4b>;
+
+			hid-descr-addr = <0x0000>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(O, 6) IRQ_TYPE_LEVEL_LOW>;
+
+			//vdd-supply = <&touchscreen_reg>;
+		};
+	};
+
+	i2c@7000c500 {
+		status = "okay";
+		clock-frequency = <400000>;
+
+		wm8962: audio-codec@1a {
+			compatible = "wlf,wm8962";
+			reg = <0x1a>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(X, 3) IRQ_TYPE_LEVEL_HIGH>;
+
+			// TODO check regulators
+			DCVDD-supply = <&stub_audio_reg>;
+			DBVDD-supply = <&stub_audio_reg>;
+			AVDD-supply = <&stub_audio_reg>;
+			CPVDD-supply = <&stub_audio_reg>;
+			MICVDD-supply = <&stub_audio_reg>;
+			PLLVDD-supply = <&stub_audio_reg>;
+			SPKVDD1-supply = <&stub_audio_reg>;
+			SPKVDD2-supply = <&stub_audio_reg>;
+		};
+
+		temperature-sensor@4c {
+			compatible = "onnn,nct1008";
+			reg = <0x4c>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(V, 1) IRQ_TYPE_EDGE_FALLING>;
+
+			// vcc-supply TODO
+			#thermal-sensor-cells = <1>;
+		};
+	};
+
+	hdmi_ddc: i2c@7000c700 {
+		status = "okay";
+		clock-frequency = <100000>;
+	};
+
+	i2c@7000d000 {
+		status = "okay";
+		clock-frequency = <1400000>;
+
+		// Battery Charger, SMPS, LDOs, FETs
+		pmic@48 {
+			compatible = "ti,tps65090";
+			reg = <0x48>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(S, 2) IRQ_TYPE_LEVEL_HIGH>;
+
+			vsys1-supply = <&vdd_ac_bat_reg>;
+			vsys2-supply = <&vdd_ac_bat_reg>;
+			vsys-l1-supply = <&vdd_ac_bat_reg>;
+			vsys-l2-supply = <&vdd_ac_bat_reg>;
+			
+			infet6-supply = <&stub_sd_reg>;
+
+			charger {
+				compatible = "ti,tps65090-charger";
+				ti,enable-low-current-chrg;
+			};
+
+			regulators {
+				// DCDC Regulators should be always on.
+
+				// UEFI has it disabled but external control is enabled
+				// Fixed at 5V
+				tps65090_dcdc1_reg: dcdc1 {
+					regulator-name = "vdd-sys-5v0";
+					regulator-min-microvolt = <5000000>;
+					regulator-max-microvolt = <5000000>;
+					ti,enable-ext-control;
+				};
+
+				// UEFI has it disabled but external control is enabled
+				// Fixed at 3v3
+				tps65090_dcdc2_reg: dcdc2 {
+					regulator-name = "vdd-sys-3v3";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					ti,enable-ext-control;
+				};
+
+				// UEFI has it disabled but external control is enabled
+				// variable voltage determined by external resistor				
+				tps65090_dcdc3_reg: dcdc3 {
+					ti,enable-ext-control;
+				};
+
+				// Connected to panel. Don't know how. Need few more tests
+				// 1A / SystemVoltage
+				tps65090_fet1: fet1 {
+					regulator-name = "something-panel";
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				// 200mA / 5V0
+				// Enabled but not known
+				// reverse-current protected for connections with external voltage: HDMI, USB
+				tps65090_fet2: fet2 {
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				// LDO3 modem on Dalmore. Maybe Surface 2 with modem?
+				// 3A / 3v3
+
+				// Connected to panel. Don't know how. Need few more tests
+				// 1A / 3v3
+				tps65090_fet4: fet4 {
+					//regulator-name = "vdd-lcd";
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				// No FET5 - crash boot - can't enable
+				// UEFI says enable but PowerGood signal isn't present
+				// Maybe missing input voltage?
+				// 1A / 3v3
+
+				// 1A / 3v3
+				tps65090_fet6: fet6 {
+					regulator-name = "vdd-sd-slot";
+					regulator-always-on;
+				};
+
+				// FET7
+				// 1A / 3v3
+
+				// always on LDO; can be bypassed by DCDC1/2
+				ldo1 {
+					regulator-name = "vdd-sby-5v0";
+					regulator-min-microvolt = <5000000>;
+					regulator-max-microvolt = <5000000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+
+				ldo2 {
+					regulator-name = "vdd-sby-3v3";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+					regulator-boot-on;
+				};
+			};
+		};
+
+		palmas: pmic@58 {
+			compatible = "ti,palmas";
+			reg = <0x58>;
+			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+
+			#interrupt-cells = <2>;
+			interrupt-controller;
+
+			ti,system-power-controller;
+			ti,power-ctrl;
+
+			palmas_gpio: gpio {
+				compatible = "ti,palmas-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+			};
+
+			palmas_clk32kgaudio@0 {
+				compatible = "ti,palmas-clk32kgaudio";
+				#clock-cells = <0>;
+			};
+
+			pmic {
+				compatible = "ti,tps65913-pmic", "ti,palmas-pmic";
+
+				ldo9-in-supply = <&stub_sd_reg>;
+
+				ldousb-in-supply = <&stub_audio_reg>;
+
+				regulators {
+					smps123 {
+						regulator-name = "vdd-cpu";
+						regulator-min-microvolt = <1100000>;
+						regulator-max-microvolt = <1100000>;
+						regulator-always-on;
+						regulator-boot-on;
+						ti,roof-floor = <1>;
+						ti,mode-sleep = <0>;
+						regulator-ramp-delay = <2500>;
+						ti,warm-reset;
+					};
+
+					smps457 {
+						regulator-name = "vdd-core";
+						regulator-min-microvolt = <1100000>;
+						regulator-max-microvolt = <1100000>;
+						regulator-always-on;
+						regulator-boot-on;
+						ti,roof-floor = <1>;
+						ti,mode-sleep = <0>;
+						regulator-ramp-delay = <5000>;
+						ti,warm-reset;
+					};
+
+					// disabled in UEFI, could be used for something.
+					smps6 {
+						regulator-name = "dunno";
+						regulator-min-microvolt = <850000>;
+						regulator-max-microvolt = <850000>;
+						ti,roof-floor = <1>;
+						ti,mode-sleep = <0>;
+						regulator-ramp-delay = <5000>;
+						ti,warm-reset;
+					};
+
+					tps65913_smps8: smps8 {
+						regulator-name = "vdd-1v8";
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+						regulator-boot-on;
+						ti,roof-floor = <1>;
+						ti,mode-sleep = <0>;
+						regulator-ramp-delay = <5000>;
+						ti,warm-reset;
+					};
+
+					tps65913_smps9: smps9 {
+						regulator-name = "vdd-1v05";
+						regulator-min-microvolt = <1050000>;
+						regulator-max-microvolt = <1050000>;
+						regulator-always-on;
+						ti,warm-reset;
+					};
+					
+					// No SMPS10 //
+					
+					ldo1 {
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+					
+					ldo2 {
+						regulator-min-microvolt = <2800000>;
+						regulator-max-microvolt = <2800000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+					
+					avdd_dsi_csi: ldo3 {
+						regulator-name = "avdd-dsi-csi";
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+					};
+
+					// No LDO4 maybe 1.8V //
+					
+					ldo5 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+					
+					// No LDO6 maybe 0.9V //
+					
+					ldo7 {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+					
+					ldo8 {
+						regulator-name = "vdd-rtc";
+						regulator-min-microvolt = <1200000>;
+						regulator-max-microvolt = <1200000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+					
+					tps65913_ldo9: ldo9 {
+						regulator-name = "vddio-sdmmc-2";
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-always-on;
+					};
+					
+					ldoln {
+						regulator-min-microvolt = <1800000>;
+						regulator-max-microvolt = <1800000>;
+						regulator-always-on;
+					};
+					
+					// reg 6A says this is connected to VBus. Not to sys
+					ldousb {
+						regulator-name = "avdd-usb";
+						regulator-min-microvolt = <3300000>;
+						regulator-max-microvolt = <3300000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+
+					regen2 {
+						regulator-max-microvolt = <5000000>;
+						regulator-always-on;
+						regulator-boot-on;
+					};
+					
+					sysen1 {
+						// enabled by UEFI. need to check again
+					};
+				};
+			};
+
+			palmas_pwr_button: pwrbutton {
+				compatible = "ti,palmas-pwrbutton";
+				//interrupt-parent = <&palmas>;
+				//interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+				ti,palmas-long-press-seconds = <6>;
+				ti,palmas-pwron-debounce-milli-seconds = <15>;
+			};
+
+			rtc {
+				compatible = "ti,palmas-rtc";
+				interrupt-parent = <&palmas>;
+				interrupts = <8 IRQ_TYPE_NONE>;
+			};
+		};
+		
+	};
+
+	pmc@7000e400 {
+		nvidia,invert-interrupt;
+		nvidia,suspend-mode = <2>;
+		nvidia,cpu-pwr-good-time = <300>;
+		nvidia,cpu-pwr-off-time = <300>;
+		nvidia,core-pwr-good-time = <641 3845>;
+		nvidia,core-pwr-off-time = <2000>;
+		nvidia,core-power-req-active-high;
+		nvidia,sys-clock-req-active-high;
+
+		/* Clear DEV_ON bit in DEV_CTRL register of TPS65913 PMIC  */
+		i2c-thermtrip {
+			nvidia,i2c-controller-id = <4>;
+			nvidia,bus-addr = <0x58>;
+			nvidia,reg-addr = <0xa0>;
+			nvidia,reg-data = <0x00>;
+		};
+	};
+
+	hda@70030000 {
+		status = "okay";
+	};
+
+	ahub@70080000 {
+		/* I2S1 -> audio-codec */
+		i2s@70080400 {
+			status = "okay";
+		};
+	};
+
+	mrvl_wifi_pwrseq: wifi-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+
+		clocks = <&tegra_pmc TEGRA_PMC_CLK_BLINK>;
+		clock-names = "ext_clock";
+
+		post-power-on-delay-ms = <300>;
+		power-off-delay-us = <300>;
+		// Reset and enable: K0, K2, K4
+	};
+
+	// Firmware doesn't come active in time.
+	/* WiFi - SDMMC-1 */
+	sdmmc1: mmc@78000000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		status = "okay";
+
+		bus-width = <4>;
+		cap-power-off-card;
+		keep-power-in-suspend;
+		max-frequency = <100000000>;
+
+		assigned-clocks = <&tegra_car TEGRA114_CLK_SDMMC1>;
+		assigned-clock-parents = <&tegra_car TEGRA114_CLK_PLL_C>;
+		assigned-clock-rates = <100000000>;
+
+		mmc-pwrseq = <&mrvl_wifi_pwrseq>;
+		//vqmmc-supply = <&vqmmc_wifi_reg>;
+
+		// Marvell 88W8797 WiFi 
+		wifi@1 {
+			compatible = "marvell,sd8897";
+			reg = <1>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(U, 5) IRQ_TYPE_LEVEL_LOW>; // change back to LOW to comply ACPI
+		};
+	};
+
+	/* SD - SDMMC-3 */
+	sdmmc3: mmc@78000400 {
+		status = "disabled"; // disable uart in UEFI stub
+		bus-width = <4>;
+		cd-gpios = <&gpio TEGRA_GPIO(V, 2) GPIO_ACTIVE_LOW>;
+		// Need to recheck if SD works but UART is more important for now
+		// vqmmc-supply = <&tps65913_ldo9>; // io voltage
+		// vmmc-supply = <&tps65090_fet6>; // card power
+	};
+
+	/* eMMC - SDMMC-4 */
+	sdmmc4: mmc@78000600 {
+		status = "okay";
+		bus-width = <8>;
+		non-removable;
+	};
+
+	usb@7d000000 {
+		status = "okay";
+		compatible = "nvidia,tegra114-udc";
+		dr_mode = "otg";
+	};
+
+	usb-phy@7d000000 {
+		status = "okay";
+		/* TODO: vbus-supply */
+		//vbus-supply = <&usb3_vbus_reg>;
+
+	};
+
+	backlight: backlight {
+		compatible = "pwm-backlight";
+
+		enable-gpios = <&gpio TEGRA_GPIO(CC, 2) GPIO_ACTIVE_HIGH>;
+		power-supply = <&tps65090_fet1>;
+		pwms = <&pwm 0 100000>;
+
+		brightness-levels = <1 255>;
+		num-interpolated-steps = <254>;
+		default-brightness-level = <128>;
+	};
+
+	clk32k_in: clock-32k {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <32768>;
+		clock-output-names = "pmic-oscillator";
+	};
+
+	gpio-hall-sensor {
+		compatible = "gpio-keys";
+
+		label = "GPIO Hall Effect Sensor";
+
+		hall-sensor {
+			label = "Hall Effect Sensor";
+			gpios = <&gpio TEGRA_GPIO(R, 4) GPIO_ACTIVE_HIGH>;
+			linux,input-type = <EV_SW>;
+			linux,code = <SW_LID>;
+			linux,can-disable;
+			wakeup-source;
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		label = "GPIO Buttons";
+
+		power {
+			label = "Power Button";
+			gpios = <&gpio TEGRA_GPIO(V, 0) GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_POWER>;
+			debounce-interval = <10>;
+			wakeup-source;
+		};
+
+		windows-button {
+			label = "Windows Button";
+			gpios = <&gpio TEGRA_GPIO(I, 5) GPIO_ACTIVE_HIGH>;
+			linux,code = <KEY_LEFTMETA>;
+			debounce-interval = <10>;
+			wakeup-source;
+		};
+
+		volume-down {
+			label = "Volume Down";
+			gpios = <&gpio TEGRA_GPIO(R, 1) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			debounce-interval = <10>;
+		};
+
+		volume-up {
+			label = "Volume Up";
+			gpios = <&gpio TEGRA_GPIO(R, 2) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <10>;
+		};
+	};
+
+	sound {
+		compatible = "nvidia,tegra-audio-wm8962";
+		nvidia,model = "NVIDIA Tegra Surface 2";
+
+		nvidia,audio-routing =
+			"Headphone Jack", "HPOUTR",
+			"Headphone Jack", "HPOUTL",
+			"Int Spk", "SPKOUTR",
+			"Int Spk", "SPKOUTL";
+
+		nvidia,i2s-controller = <&tegra_i2s1>;
+		nvidia,audio-codec = <&wm8962>;
+
+		nvidia,hp-det-gpios = <&gpio TEGRA_GPIO(W, 2) GPIO_ACTIVE_LOW>;
+
+		clocks = <&tegra_car TEGRA114_CLK_PLL_A>,
+			 <&tegra_car TEGRA114_CLK_PLL_A_OUT0>,
+			 <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
+		clock-names = "pll_a", "pll_a_out0", "mclk";
+
+		assigned-clocks = <&tegra_car TEGRA114_CLK_EXTERN1>,
+				  <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
+
+		assigned-clock-parents = <&tegra_car TEGRA114_CLK_PLL_A_OUT0>,
+					 <&tegra_car TEGRA114_CLK_EXTERN1>;
+	};
+	
+	/* Regulators */
+	vdd_ac_bat_reg: regulator-acbat {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_ac_bat";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+/*
+	usb3_vbus_reg: regulator-usb3 {
+		compatible = "regulator-fixed";
+		regulator-name = "usb2_vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+		gpio = <&gpio TEGRA_GPIO(K, 1) GPIO_ACTIVE_HIGH>;
+		//regulator-enable-ramp-delay = <100000>; //offset of 0x4000 a 100ms
+		//vin-supply = <&tps65090_dcdc1_reg>;
+	};
+*/
+	stub_sd_reg: stub_sd {
+		compatible = "regulator-fixed";
+		regulator-name = "stub_sd";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	stub_audio_reg: stub_audio {
+		compatible = "regulator-fixed";
+		regulator-name = "stub_audio";
+	};
+
+/*
+	touchscreen_reg: touchscreen_vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "touchscreen_vdd";
+		enable-active-high;
+		regulator-enable-ramp-delay = <70000>; // 70ms from ACPI
+		gpio = <&gpio TEGRA_GPIO(K, 6) GPIO_ACTIVE_HIGH>;
+		regulator-always-on;
+	};
+*/
+
+/*
+	what_ever_reg: what_ever {
+		compatible = "regulator-fixed";
+		regulator-name = "what";
+		enable-active-high;
+		regulator-enable-ramp-delay = <100000>; // 100ms from ACPI
+		gpio = <&gpio TEGRA_GPIO(H, 2) GPIO_ACTIVE_HIGH>;
+		regulator-always-on;
+	};
+
+	sensor_hub_reg: sensor_hub_vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "sensor_hub_vdd";
+		enable-active-high;
+		regulator-enable-ramp-delay = <100000>; // 100ms from ACPI
+		gpio = <&gpio TEGRA_GPIO(X, 6) GPIO_ACTIVE_HIGH>;
+		regulator-always-on;
+	};
+*/
+};
