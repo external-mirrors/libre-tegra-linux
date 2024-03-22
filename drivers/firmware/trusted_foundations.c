@@ -204,7 +204,7 @@ static const struct firmware_ops trusted_foundations_ops = {
 #endif
 };
 
-static const struct firmware_ops trusted_foundations_surface_ops = {
+static const struct firmware_ops trusted_foundations_efi_ops = {
 #ifdef CONFIG_CACHE_L2X0
 	.l2x0_init = tz_init_cache,
 #endif
@@ -216,8 +216,8 @@ void register_trusted_foundations(struct trusted_foundations_platform_data *pd)
 	 * we are not using version information for now since currently
 	 * supported SMCs are compatible with all TF releases
 	 */
-	if (pd->is_surface_rt) {
-		register_firmware_ops(&trusted_foundations_surface_ops);
+	if (pd->is_efi) {
+		register_firmware_ops(&trusted_foundations_efi_ops);
 	} else {
 		register_firmware_ops(&trusted_foundations_ops);
 	}
@@ -241,12 +241,13 @@ void of_register_trusted_foundations(void)
 				   &pdata.version_minor);
 	if (err != 0)
 		panic("Trusted Foundation: missing version-minor property\n");
-	if (of_property_read_bool(node, "tlm,microsoft-surface-rt"))
-		pdata.is_surface_rt = true;
+	if (of_property_read_bool(node, "tlm,efi-firmware"))
+		pdata.is_efi = true;
 	register_trusted_foundations(&pdata);
 }
 
 bool trusted_foundations_registered(void)
 {
-	return firmware_ops == &trusted_foundations_ops || firmware_ops == &trusted_foundations_surface_ops;
+	return firmware_ops == &trusted_foundations_ops ||
+		   firmware_ops == &trusted_foundations_efi_ops;
 }
