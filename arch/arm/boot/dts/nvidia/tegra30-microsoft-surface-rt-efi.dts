@@ -14,7 +14,7 @@
 			compatible = "tlm,trusted-foundations";
 			tlm,version-major = <0x0>;
 			tlm,version-minor = <0x0>;
-			tlm,microsoft-surface-rt;
+			tlm,efi-firmware;
 		};
 	};
 };
