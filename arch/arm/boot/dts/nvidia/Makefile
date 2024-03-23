@@ -46,6 +46,7 @@ dtb-$(CONFIG_ARCH_TEGRA_3x_SOC) += \
 	tegra30-cardhu-a04.dtb \
 	tegra30-colibri-eval-v3.dtb \
 	tegra30-lenovo-ideapad-yoga-11.dtb \
+	tegra30-lenovo-ideapad-yoga-11-efi.dtb \
 	tegra30-lenovo-ideatab-a2109a.dtb \
 	tegra30-lg-p880.dtb \
 	tegra30-lg-p895.dtb \

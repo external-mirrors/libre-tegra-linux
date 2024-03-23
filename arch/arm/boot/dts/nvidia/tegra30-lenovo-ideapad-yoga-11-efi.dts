@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+#include "tegra30-lenovo-ideapad-yoga-11.dts"
+
+/*
+ * Temporary Lenovo IdeaPad Yoga 11 device-tree for EFI booting.
+ */
+
+/ {
+	compatible = "lenovo,ideapad-yoga-11-efi", "lenovo,ideapad-yoga-11", "nvidia,tegra30";
+
+	firmware {
+		trusted-foundations {
+			compatible = "tlm,trusted-foundations";
+			tlm,version-major = <0x0>;
+			tlm,version-minor = <0x0>;
+			tlm,efi-firmware;
+		};
+	};
+};
+
+&tegra_pmc {
+	/* CPU Idle does not work yet, disabling LP2 */
+	/delete-property/ nvidia,suspend-mode;
+};
