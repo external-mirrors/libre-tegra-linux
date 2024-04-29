@@ -147,7 +147,8 @@ EXPORT_SYMBOL_GPL(cpu_pm_exit);
  */
 noinstr int cpu_cluster_pm_enter(void)
 {
-	return cpu_pm_notify_robust(CPU_CLUSTER_PM_ENTER, CPU_CLUSTER_PM_ENTER_FAILED);
+	/* No locking as all the relevant CPUs are down. */
+	return raw_notifier_call_chain_robust(&cpu_pm_notifier.chain, CPU_CLUSTER_PM_ENTER, CPU_CLUSTER_PM_ENTER_FAILED, NULL);
 }
 EXPORT_SYMBOL_GPL(cpu_cluster_pm_enter);
 
