@@ -1635,6 +1635,14 @@
 		};
 	};
 
+	/* CPU DFLL clock */
+	clock@70110000 {
+		status = "okay";
+		nvidia,sample-rate = <11500>;
+		nvidia,i2c-fs-rate = <400000>;
+		vdd-cpu-supply = <&vdd_cpu>;
+	};
+
 	brcm_wifi_pwrseq: pwrseq-wifi {
 		compatible = "mmc-pwrseq-simple";
 
@@ -1779,6 +1787,12 @@
 			connector_in: endpoint {
 				remote-endpoint = <&hdmi_out>;
 			};
+		};
+	};
+
+	cpus {
+		cpu@0 {
+			vdd-cpu-supply = <&vdd_cpu>;
 		};
 	};
 
