@@ -27,9 +27,10 @@ int host1x_init_iommu(struct host1x *host)
 	if (err)
 		goto put_group;
 
-	host->domain = iommu_domain_alloc(&platform_bus_type);
-	if (!host->domain) {
-		err = -ENOMEM;
+	host->domain = iommu_paging_domain_alloc(host->dev);
+	if (IS_ERR(host->domain)) {
+		err = PTR_ERR(host->domain);
+		host->domain = NULL;
 		goto put_cache;
 	}
 
