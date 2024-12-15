@@ -686,7 +686,7 @@ static int __maybe_unused gr3d_runtime_suspend(struct device *dev)
 resume_host1x:
 	host1x_channel_reinit(gr3d->channel->channel);
 	drm_sched_resubmit_jobs(&gr3d->channel->sched);
-	drm_sched_start(&gr3d->channel->sched, false);
+	drm_sched_start(&gr3d->channel->sched);
 
 	return err;
 }
@@ -716,7 +716,7 @@ static int __maybe_unused gr3d_runtime_resume(struct device *dev)
 
 	host1x_channel_reinit(gr3d->channel->channel);
 	drm_sched_resubmit_jobs(&gr3d->channel->sched);
-	drm_sched_start(&gr3d->channel->sched, false);
+	drm_sched_start(&gr3d->channel->sched);
 
 	return 0;
 
