@@ -427,7 +427,7 @@ acquire_reset:
 
 	host1x_channel_reinit(gr2d->channel->channel);
 	drm_sched_resubmit_jobs(&gr2d->channel->sched);
-	drm_sched_start(&gr2d->channel->sched, false);
+	drm_sched_start(&gr2d->channel->sched);
 
 	return err;
 }
@@ -458,7 +458,7 @@ static int __maybe_unused gr2d_runtime_resume(struct device *dev)
 
 	host1x_channel_reinit(gr2d->channel->channel);
 	drm_sched_resubmit_jobs(&gr2d->channel->sched);
-	drm_sched_start(&gr2d->channel->sched, false);
+	drm_sched_start(&gr2d->channel->sched);
 
 	return 0;
 
