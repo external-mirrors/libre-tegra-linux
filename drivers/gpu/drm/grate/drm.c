@@ -4,13 +4,13 @@
  * Copyright (C) 2012-2016 NVIDIA CORPORATION.  All rights reserved.
  */
 
+#include <linux/aperture.h>
 #include <linux/bitops.h>
 #include <linux/idr.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 
-#include <drm/drm_aperture.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_debugfs.h>
@@ -27,7 +27,6 @@
 
 #define DRIVER_NAME "tegra"
 #define DRIVER_DESC "NVIDIA Tegra graphics"
-#define DRIVER_DATE "20120330"
 #define DRIVER_MAJOR GRATE_KERNEL_DRM_VERSION
 #define DRIVER_MINOR 0
 #define DRIVER_PATCHLEVEL 0
@@ -318,7 +317,6 @@ static const struct drm_driver tegra_drm_driver = {
 
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
-	.date = DRIVER_DATE,
 	.major = DRIVER_MAJOR,
 	.minor = DRIVER_MINOR,
 	.patchlevel = DRIVER_PATCHLEVEL,
@@ -554,7 +552,7 @@ static int host1x_drm_probe(struct host1x_device *dev)
 
 	drm_mode_config_reset(drm);
 
-	err = drm_aperture_remove_framebuffers(&tegra_drm_driver);
+	err = aperture_remove_all_conflicting_devices(tegra_drm_driver.name);
 	if (err < 0)
 		goto hub;
 
