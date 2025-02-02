@@ -218,7 +218,7 @@ tegra_drm_sched_timedout_job(struct drm_sched_job *sched_job)
 	drm_sched_resubmit_jobs(sched);
 
 restart_sched:
-	drm_sched_start(sched);
+	drm_sched_start(sched, 0);
 
 	return DRM_GPU_SCHED_STAT_NOMINAL;
 }

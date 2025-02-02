@@ -427,7 +427,7 @@ acquire_reset:
 
 	host1x_channel_reinit(gr2d->channel->channel);
 	drm_sched_resubmit_jobs(&gr2d->channel->sched);
-	drm_sched_start(&gr2d->channel->sched);
+	drm_sched_start(&gr2d->channel->sched, 0);
 
 	return err;
 }
@@ -458,7 +458,7 @@ static int __maybe_unused gr2d_runtime_resume(struct device *dev)
 
 	host1x_channel_reinit(gr2d->channel->channel);
 	drm_sched_resubmit_jobs(&gr2d->channel->sched);
-	drm_sched_start(&gr2d->channel->sched);
+	drm_sched_start(&gr2d->channel->sched, 0);
 
 	return 0;
 
@@ -483,5 +483,5 @@ struct platform_driver tegra_gr2d_driver = {
 		.pm = &tegra_gr2d_pm,
 	},
 	.probe = gr2d_probe,
-	.remove_new = gr2d_remove,
+	.remove = gr2d_remove,
 };
