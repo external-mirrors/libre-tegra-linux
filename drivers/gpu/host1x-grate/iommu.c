@@ -16,7 +16,7 @@ int host1x_init_iommu(struct host1x *host)
 	domain = iommu_get_domain_for_dev(host->dev);
 
 	/* DMA API manages IOVA mappings for us */
-	if (domain)
+	if (domain && domain->type != IOMMU_DOMAIN_IDENTITY)
 		return 0;
 
 	host->group = iommu_group_get(host->dev);
