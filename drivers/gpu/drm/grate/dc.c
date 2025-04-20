@@ -3424,12 +3424,7 @@ static void tegra_dc_remove(struct platform_device *pdev)
 	struct tegra_dc *dc = platform_get_drvdata(pdev);
 	int err;
 
-	err = host1x_client_unregister(&dc->client);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to unregister host1x client: %d\n",
-			err);
-		return;
-	}
+	host1x_client_unregister(&dc->client);
 
 	err = tegra_dc_rgb_remove(dc);
 	if (err < 0) {
