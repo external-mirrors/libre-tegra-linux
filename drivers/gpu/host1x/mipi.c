@@ -61,6 +61,13 @@
 #define MIPI_CAL_CONFIG_DSID_CLK	0x1d
 #define MIPI_CAL_CONFIG_CSIE_CLK	0x1d
 
+/* DSI V0 controller */
+#define CSI_CIL_PAD_CONFIG		0x09
+#define CSI_CILA_MIPI_CAL_CONFIG	0x0a
+#define CSI_CILB_MIPI_CAL_CONFIG	0x0b
+#define CSI_DSI_MIPI_CAL_CONFIG		0x14
+#define CSI_MIPIBIAS_PAD_CONFIG		0x15
+
 /* for data and clock lanes */
 #define MIPI_CAL_CONFIG_SELECT		(1 << 21)
 
@@ -92,6 +99,8 @@ struct tegra_mipi_pad {
 };
 
 struct tegra_mipi_soc {
+	bool dsi_v0;
+
 	bool has_clk_lane;
 	const struct tegra_mipi_pad *pads;
 	unsigned int num_pads;
@@ -122,6 +131,7 @@ struct tegra_mipi {
 	void __iomem *regs;
 	struct mutex lock;
 	struct clk *clk;
+	struct clk *csi_clk;
 
 	unsigned long usage_count;
 };
@@ -265,6 +275,9 @@ int tegra_mipi_enable(struct tegra_mipi_device *dev)
 {
 	int err = 0;
 
+	if (dev->mipi->soc->dsi_v0)
+		return 0;
+
 	mutex_lock(&dev->mipi->lock);
 
 	if (dev->mipi->usage_count++ == 0)
@@ -280,6 +293,9 @@ EXPORT_SYMBOL(tegra_mipi_enable);
 int tegra_mipi_disable(struct tegra_mipi_device *dev)
 {
 	int err = 0;
+
+	if (dev->mipi->soc->dsi_v0)
+		return 0;
 
 	mutex_lock(&dev->mipi->lock);
 
@@ -300,6 +316,9 @@ int tegra_mipi_finish_calibration(struct tegra_mipi_device *device)
 	u32 value;
 	int err;
 
+	if (mipi->soc->dsi_v0)
+		return 0;
+
 	err = readl_relaxed_poll_timeout(status_reg, value,
 					 !(value & MIPI_CAL_STATUS_ACTIVE) &&
 					 (value & MIPI_CAL_STATUS_DONE), 50,
@@ -311,6 +330,43 @@ int tegra_mipi_finish_calibration(struct tegra_mipi_device *device)
 }
 EXPORT_SYMBOL(tegra_mipi_finish_calibration);
 
+static int tegra20_mipi_calibration(struct tegra_mipi_device *device)
+{
+	struct tegra_mipi *mipi = device->mipi;
+	const struct tegra_mipi_soc *soc = mipi->soc;
+	u32 value;
+	int err;
+
+	err = clk_enable(mipi->csi_clk);
+	if (err < 0)
+		return err;
+
+	mutex_lock(&mipi->lock);
+
+	value = MIPI_CAL_CONFIG_TERMOS(soc->termos);
+	tegra_mipi_writel(mipi, value, CSI_CILA_MIPI_CAL_CONFIG);
+
+	value = MIPI_CAL_CONFIG_TERMOS(soc->termos);
+	tegra_mipi_writel(mipi, value, CSI_CILB_MIPI_CAL_CONFIG);
+
+	value = MIPI_CAL_CONFIG_HSPDOS(soc->hspdos) |
+		MIPI_CAL_CONFIG_HSPUOS(soc->hspuos);
+	tegra_mipi_writel(mipi, value, CSI_DSI_MIPI_CAL_CONFIG);
+
+	value = MIPI_CAL_BIAS_PAD_DRV_DN_REF(soc->pad_drive_down_ref) |
+		MIPI_CAL_BIAS_PAD_DRV_UP_REF(soc->pad_drive_up_ref);
+	tegra_mipi_writel(mipi, value, CSI_MIPIBIAS_PAD_CONFIG);
+
+	tegra_mipi_writel(mipi, 0x0, CSI_CIL_PAD_CONFIG);
+
+	mutex_unlock(&mipi->lock);
+
+	clk_disable(mipi->csi_clk);
+	clk_disable(mipi->clk);
+
+	return 0;
+}
+
 int tegra_mipi_start_calibration(struct tegra_mipi_device *device)
 {
 	const struct tegra_mipi_soc *soc = device->mipi->soc;
@@ -321,6 +377,9 @@ int tegra_mipi_start_calibration(struct tegra_mipi_device *device)
 	err = clk_enable(device->mipi->clk);
 	if (err < 0)
 		return err;
+
+	if (soc->dsi_v0)
+		return tegra20_mipi_calibration(device);
 
 	mutex_lock(&device->mipi->lock);
 
@@ -386,6 +445,15 @@ int tegra_mipi_start_calibration(struct tegra_mipi_device *device)
 }
 EXPORT_SYMBOL(tegra_mipi_start_calibration);
 
+static const struct tegra_mipi_soc tegra20_mipi_soc = {
+	.dsi_v0 = true,
+	.pad_drive_down_ref = 0x5,
+	.pad_drive_up_ref = 0x7,
+	.hspdos = 0x4,
+	.hspuos = 0x3,
+	.termos = 0x4,
+};
+
 static const struct tegra_mipi_pad tegra114_mipi_pads[] = {
 	{ .data = MIPI_CAL_CONFIG_CSIA },
 	{ .data = MIPI_CAL_CONFIG_CSIB },
@@ -399,6 +467,7 @@ static const struct tegra_mipi_pad tegra114_mipi_pads[] = {
 };
 
 static const struct tegra_mipi_soc tegra114_mipi_soc = {
+	.dsi_v0 = false,
 	.has_clk_lane = false,
 	.pads = tegra114_mipi_pads,
 	.num_pads = ARRAY_SIZE(tegra114_mipi_pads),
@@ -426,6 +495,7 @@ static const struct tegra_mipi_pad tegra124_mipi_pads[] = {
 };
 
 static const struct tegra_mipi_soc tegra124_mipi_soc = {
+	.dsi_v0 = false,
 	.has_clk_lane = true,
 	.pads = tegra124_mipi_pads,
 	.num_pads = ARRAY_SIZE(tegra124_mipi_pads),
@@ -443,6 +513,7 @@ static const struct tegra_mipi_soc tegra124_mipi_soc = {
 };
 
 static const struct tegra_mipi_soc tegra132_mipi_soc = {
+	.dsi_v0 = false,
 	.has_clk_lane = true,
 	.pads = tegra124_mipi_pads,
 	.num_pads = ARRAY_SIZE(tegra124_mipi_pads),
@@ -473,6 +544,7 @@ static const struct tegra_mipi_pad tegra210_mipi_pads[] = {
 };
 
 static const struct tegra_mipi_soc tegra210_mipi_soc = {
+	.dsi_v0 = false,
 	.has_clk_lane = true,
 	.pads = tegra210_mipi_pads,
 	.num_pads = ARRAY_SIZE(tegra210_mipi_pads),
@@ -490,6 +562,8 @@ static const struct tegra_mipi_soc tegra210_mipi_soc = {
 };
 
 static const struct of_device_id tegra_mipi_of_match[] = {
+	{ .compatible = "nvidia,tegra20-mipi", .data = &tegra20_mipi_soc },
+	{ .compatible = "nvidia,tegra30-mipi", .data = &tegra20_mipi_soc },
 	{ .compatible = "nvidia,tegra114-mipi", .data = &tegra114_mipi_soc },
 	{ .compatible = "nvidia,tegra124-mipi", .data = &tegra124_mipi_soc },
 	{ .compatible = "nvidia,tegra132-mipi", .data = &tegra132_mipi_soc },
@@ -523,6 +597,14 @@ static int tegra_mipi_probe(struct platform_device *pdev)
 	if (IS_ERR(mipi->clk)) {
 		dev_err(&pdev->dev, "failed to get clock\n");
 		return PTR_ERR(mipi->clk);
+	}
+
+	if (mipi->soc->dsi_v0) {
+		mipi->csi_clk = devm_clk_get_prepared(&pdev->dev, "csi");
+		if (IS_ERR(mipi->csi_clk)) {
+			dev_err(&pdev->dev, "failed to get CSI clock\n");
+			return PTR_ERR(mipi->csi_clk);
+		}
 	}
 
 	platform_set_drvdata(pdev, mipi);
