@@ -74,6 +74,16 @@
 			status = "disabled";
 		};
 
+		/* DSI MIPI calibration logic is a part of VI/CSI */
+		mipi: mipi@54080220 {
+			compatible = "nvidia,tegra20-mipi";
+			reg = <0x54080220 0x100>;
+			clocks = <&tegra_car TEGRA20_CLK_VI>,
+				 <&tegra_car TEGRA20_CLK_CSI>;
+			clock-names = "vi", "csi";
+			#nvidia,mipi-calibrate-cells = <1>;
+		};
+
 		epp@540c0000 {
 			compatible = "nvidia,tegra20-epp";
 			reg = <0x540c0000 0x00040000>;
@@ -219,9 +229,13 @@
 			clock-names = "dsi", "parent";
 			resets = <&tegra_car 48>;
 			reset-names = "dsi";
+			nvidia,mipi-calibrate = <&mipi 0>;
 			power-domains = <&pd_core>;
 			operating-points-v2 = <&dsi_dvfs_opp_table>;
 			status = "disabled";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
 		};
 	};
 
