@@ -19,6 +19,16 @@ tegra_drm_open_channel(struct tegra_drm *tegra,
 	struct tegra_drm_channel *drm_channel;
 	int err;
 
+	const struct drm_sched_init_args sched_args = {
+		.ops = &tegra_drm_sched_ops,
+		.num_rqs = DRM_SCHED_PRIORITY_COUNT,
+		.credit_limit = hw_jobs_limit,
+		.hang_limit = job_hang_limit,
+		.timeout = msecs_to_jiffies(timeout_msecs / 2),
+		.name = name,
+		.dev = drm_client->base.dev,
+	};
+
 	drm_channel = kzalloc(sizeof(*drm_channel), GFP_KERNEL);
 	if (!drm_channel)
 		return ERR_PTR(-ENOMEM);
@@ -32,12 +42,7 @@ tegra_drm_open_channel(struct tegra_drm *tegra,
 
 	drm_channel->acceptable_pipes = pipes_bitmask;
 
-	err = drm_sched_init(&drm_channel->sched,
-			     &tegra_drm_sched_ops, NULL,
-			     DRM_SCHED_PRIORITY_COUNT,
-			     hw_jobs_limit, job_hang_limit,
-			     msecs_to_jiffies(timeout_msecs / 2),
-			     NULL, NULL, name, drm_client->base.dev);
+	err = drm_sched_init(&drm_channel->sched, &sched_args);
 	if (err)
 		goto err_put_channel;
 
