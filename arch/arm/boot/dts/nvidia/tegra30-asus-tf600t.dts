@@ -1004,7 +1004,12 @@
 		/delete-property/ reg-shift;
 		status = "okay";
 
-		/* Broadcom GPS BCM47511 */
+		/* Broadcom GPS BCM47511
+		 *
+		 * interrupt gpio: U5
+		 * power gpio: U2
+		 * reset gpio: U3
+		 */
 	};
 
 	uartc: serial@70006200 {
@@ -1071,6 +1076,19 @@
 		status = "okay";
 		clock-frequency = <100000>;
 
+#if 0 // not working
+		nfc@28 {
+			compatible = "nxp,pn544-i2c";
+			reg = <0x28>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(X, 0) IRQ_TYPE_EDGE_RISING>;
+
+			enable-gpios = <&gpio TEGRA_GPIO(P, 3) GPIO_ACTIVE_HIGH>;
+			firmware-gpios = <&gpio TEGRA_GPIO(O, 6) GPIO_ACTIVE_HIGH>;
+		};
+#endif
+
 		/* TI TPS61050/61052 Boost Converter */
 		flash-led@33 {
 			compatible = "ti,tps61052";
@@ -1136,6 +1154,8 @@
 
 			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
 			clock-names = "mclk";
+
+//			realtek,ldo1-en-gpios = <&gpio TEGRA_GPIO(P, 2) GPIO_ACTIVE_HIGH>; // TODO: is it?
 		};
 
 		/* Texas Instruments TPS659110 PMIC */
@@ -2438,7 +2458,7 @@
 		regulator-name = "hdmi_5v0_sys";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio TEGRA_GPIO(P, 2) GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio TEGRA_GPIO(P, 2) GPIO_ACTIVE_HIGH>; // TODO: is it?
 		enable-active-high;
 		vin-supply = <&vdd_5v0_sys>;
 	};
