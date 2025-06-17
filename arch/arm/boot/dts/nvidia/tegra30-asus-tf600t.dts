@@ -1004,7 +1004,12 @@
 		/delete-property/ reg-shift;
 		status = "okay";
 
-		/* Broadcom GPS BCM47511 */
+		/* Broadcom GPS BCM47511
+		 *
+		 * interrupt gpio: U5
+		 * power gpio: U2
+		 * reset gpio: U3
+		 */
 	};
 
 	uartc: serial@70006200 {
@@ -1046,6 +1051,94 @@
 		clock-frequency = <100000>;
 
 		/* Nuvoton NPCE698LA0BX embedded controller */
+		embedded-controller@15 {
+			compatible = "asus,ec-pad";
+			reg = <0x15>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(S, 2) IRQ_TYPE_LEVEL_LOW>;
+
+			request-gpio = <&gpio TEGRA_GPIO(Q, 1) GPIO_ACTIVE_LOW>;
+
+			asus,dockram = <&dockram>;
+			asus,clear-factory-mode;
+
+			battery {
+				compatible = "asus,ec-battery";
+				monitored-battery = <&pad_battery>;
+			};
+
+			charger {
+				compatible = "asus,ec-charger";
+				monitored-battery = <&pad_battery>;
+			};
+
+			led {
+				compatible = "asus,ec-led";
+			};
+		};
+
+		dockram: dockram@17 {
+			compatible = "asus,dockram";
+			reg = <0x17>;
+		};
+	};
+
+	i2c-dock {
+		compatible = "i2c-hotplug-gpio";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <TEGRA_GPIO(U, 4) IRQ_TYPE_EDGE_BOTH>;
+		detect-gpios = <&gpio TEGRA_GPIO(U, 4) GPIO_ACTIVE_LOW>;
+
+		i2c-parent = <&gen1_i2c>;
+
+		keyboard@16 {
+			compatible = "hid-over-i2c";
+			reg = <0x16>;
+
+			hid-descr-addr = <0x0071>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(I, 6) IRQ_TYPE_LEVEL_LOW>;
+
+			vdd-supply = <&vdd_3v3_sys>;
+			vddl-supply = <&vdd_1v8_vio>;
+		};
+
+		/* Nuvoton NPCE698LA0BX embedded controller */
+		embedded-controller@19 {
+			compatible = "asus,ec-power";
+			reg = <0x19>;
+
+			asus,dockram = <&dockram>;
+
+			battery {
+				compatible = "asus,ec-battery";
+				monitored-battery = <&dock_battery>;
+			};
+
+			charger {
+				compatible = "asus,ec-charger";
+				monitored-battery = <&dock_battery>;
+			};
+		};
+
+		touchpad@2c {
+			compatible = "hid-over-i2c";
+			reg = <0x2c>;
+
+			hid-descr-addr = <0x0020>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(K, 2) IRQ_TYPE_LEVEL_LOW>;
+
+			vdd-supply = <&vdd_3v3_sys>;
+			vddl-supply = <&vdd_1v8_vio>;
+		};
 	};
 
 	i2c@7000c400 {
@@ -1070,6 +1163,19 @@
 	i2c@7000c500 {
 		status = "okay";
 		clock-frequency = <100000>;
+
+#if 0 // not working
+		nfc@28 {
+			compatible = "nxp,pn544-i2c";
+			reg = <0x28>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(X, 0) IRQ_TYPE_EDGE_RISING>;
+
+			enable-gpios = <&gpio TEGRA_GPIO(P, 3) GPIO_ACTIVE_HIGH>;
+			firmware-gpios = <&gpio TEGRA_GPIO(O, 6) GPIO_ACTIVE_HIGH>;
+		};
+#endif
 
 		/* TI TPS61050/61052 Boost Converter */
 		flash-led@33 {
@@ -1136,6 +1242,8 @@
 
 			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
 			clock-names = "mclk";
+
+//			realtek,ldo1-en-gpios = <&gpio TEGRA_GPIO(P, 2) GPIO_ACTIVE_HIGH>; // TODO: is it?
 		};
 
 		/* Texas Instruments TPS659110 PMIC */
@@ -2438,7 +2546,7 @@
 		regulator-name = "hdmi_5v0_sys";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
-		gpio = <&gpio TEGRA_GPIO(P, 2) GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio TEGRA_GPIO(P, 2) GPIO_ACTIVE_HIGH>; // TODO: is it?
 		enable-active-high;
 		vin-supply = <&vdd_5v0_sys>;
 	};
