@@ -725,6 +725,16 @@ config VIDEO_OV9650
 	  This is a V4L2 sensor driver for the Omnivision
 	  OV9650 and OV9652 camera sensors.
 
+config VIDEO_OV9726
+	tristate "OmniVision OV9726 sensor support"
+	select V4L2_CCI_I2C
+	help
+	  This is a V4L2 sensor driver for the Omnivision
+	  OV9726 camera sensors.
+
+	  To compile this driver as a module, choose M here: the
+	  module's name is ov9726.
+
 config VIDEO_OV9734
 	tristate "OmniVision OV9734 sensor support"
 	depends on ACPI || COMPILE_TEST
