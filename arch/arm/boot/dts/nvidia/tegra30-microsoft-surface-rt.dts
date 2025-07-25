@@ -2,11 +2,19 @@
 /dts-v1/;
 
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/media/video-interfaces.h>
 #include <dt-bindings/thermal/thermal.h>
 
 #include "tegra30.dtsi"
 #include "tegra30-cpu-opp.dtsi"
 #include "tegra30-cpu-opp-microvolt.dtsi"
+
+// Cameras share the same i2c address.
+// Find a smarter way to handle this
+#define CAM_FRONT 0
+#define CAM_REAR 1
+
+#define CAM_ACTIVE CAM_REAR
 
 / {
 	model = "Microsoft Surface RT";
@@ -37,6 +45,95 @@
 	};
 
 	host1x@50000000 {
+		vi@54080000 {
+			status = "okay";
+
+			csi@800 {
+				status = "okay";
+
+				avdd-dsi-csi-supply = <&avdd_dsi_csi>;
+
+				/* CSI-A */
+				channel@0 {
+					reg = <0>;
+
+					nvidia,mipi-calibrate = <&csi 0>; /* CSIA pad */
+
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+
+						csia_input: endpoint {
+							data-lanes = <1>;
+#if defined(CAM_ACTIVE) && CAM_ACTIVE == CAM_FRONT
+							remote-endpoint = <&front_camera_output>;
+#endif
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+
+						csia_output: endpoint {
+							remote-endpoint = <&vi_ppa_input>;
+						};
+					};
+				};
+
+				/* CSI-B */
+				channel@1 {
+					reg = <1>;
+
+					nvidia,mipi-calibrate = <&csi 1>; /* CSIB pad */
+
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+
+						csib_input: endpoint {
+							data-lanes = <3>;
+#if defined(CAM_ACTIVE) && CAM_ACTIVE == CAM_REAR
+							remote-endpoint = <&rear_camera_output>;
+#endif
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+
+						csib_output: endpoint {
+							remote-endpoint = <&vi_ppb_input>;
+						};
+					};
+				};
+			};
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+
+					vi_ppa_input: endpoint {
+						remote-endpoint = <&csia_output>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					vi_ppb_input: endpoint {
+						remote-endpoint = <&csib_output>;
+					};
+				};
+			};
+		};
+
 		lcd: dc@54200000 {
 			rgb {
 				status = "okay";
@@ -209,9 +306,70 @@
 
 	i2c@7000c500 {
 		status = "okay";
-		clock-frequency = <100000>;
+		clock-frequency = <400000>;
 
-		/* Cams at 0x10 and 0x72 */
+#if CAM_ACTIVE == CAM_FRONT // both rear and front cameras are on 0x10 with only diff being avdd supply
+		front-camera@10 {
+			compatible = "ovti,ov9726";
+			reg = <0x10>;
+
+			clocks = <&tegra_car TEGRA30_CLK_CSUS>;
+
+			reset-gpios = <&gpio TEGRA_GPIO(BB, 0) GPIO_ACTIVE_LOW>;
+
+			evdd-supply = <&dvdd_cam>;
+			dovdd-supply = <&dvdd_cam>;
+			avdd-supply = <&avdd_cam_front>;
+
+			orientation = <0>; /* Front camera */
+
+			assigned-clocks = <&tegra_car TEGRA30_CLK_VI_SENSOR>,
+					  <&tegra_car TEGRA30_CLK_CSUS>;
+			assigned-clock-rates = <24000000>;
+			assigned-clock-parents = <&tegra_car TEGRA30_CLK_PLL_P>,
+						 <&tegra_car TEGRA30_CLK_VI_SENSOR>;
+
+			port {
+				front_camera_output: endpoint {
+					data-lanes = <1>;
+					bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+					link-frequencies = /bits/ 64 <480000000>;
+					remote-endpoint = <&csia_input>;
+				};
+			};
+		};
+#elif CAM_ACTIVE == CAM_REAR
+		rear-camera@10 {
+			compatible = "ovti,ov9726";
+			reg = <0x10>;
+
+			clocks = <&tegra_car TEGRA30_CLK_CSUS>;
+
+			reset-gpios = <&gpio TEGRA_GPIO(BB, 7) GPIO_ACTIVE_LOW>;
+
+			evdd-supply = <&dvdd_cam>;
+			dovdd-supply = <&dvdd_cam>;
+			avdd-supply = <&avdd_cam_rear>;
+
+			orientation = <1>; /* Rear camera */
+			rotation = <180>;
+
+			assigned-clocks = <&tegra_car TEGRA30_CLK_VI_SENSOR>,
+					  <&tegra_car TEGRA30_CLK_CSUS>;
+			assigned-clock-rates = <24000000>;
+			assigned-clock-parents = <&tegra_car TEGRA30_CLK_PLL_P>,
+						 <&tegra_car TEGRA30_CLK_VI_SENSOR>;
+
+			port {
+				rear_camera_output: endpoint {
+					data-lanes = <3>;
+					bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+					link-frequencies = /bits/ 64 <480000000>;
+					remote-endpoint = <&csib_input>;
+				};
+			};
+		};
+#endif
 	};
 
 	hdmi_ddc: i2c@7000c700 {
@@ -334,7 +492,7 @@
 					regulator-max-microvolt = <3300000>;
 				};
 
-				ldo6 {
+				avdd_dsi_csi: ldo6 {
 					regulator-name = "avdd_dsi_csi";
 					regulator-min-microvolt = <1200000>;
 					regulator-max-microvolt = <1200000>;
@@ -767,14 +925,34 @@
 		vin-supply = <&vdd_5v0_bat>;
 	};
 
-	vdd_cam2_ldo: regulator-cam2 {
+	dvdd_cam: regulator-dv-cam {
 		compatible = "regulator-fixed";
-		regulator-name = "vdd_cam2_ldo";
+		regulator-name = "dvdd_cam";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio TEGRA_GPIO(BB, 4) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&vdd_5v0_sys>;
+	};
+
+	avdd_cam_front: regulator-avcam-front {
+		compatible = "regulator-fixed";
+		regulator-name = "avdd_cam_front";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		gpio = <&gpio TEGRA_GPIO(R, 6) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&vdd_5v0_sys>;
+	};
+
+	avdd_cam_rear: regulator-avcam-rear {
+		compatible = "regulator-fixed";
+		regulator-name = "avdd_cam_rear";
 		regulator-min-microvolt = <2800000>;
 		regulator-max-microvolt = <2800000>;
 		gpio = <&gpio TEGRA_GPIO(R, 7) GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		vin-supply = <&vdd_5v0_bat>;
+		vin-supply = <&vdd_5v0_sys>;
 	};
 
 	vdd_2v8_sen: regulator-sensors {
