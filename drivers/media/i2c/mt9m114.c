@@ -364,6 +364,11 @@
 #define MT9M114_TPG_GREEN				2
 #define MT9M114_TPG_BLUE				3
 
+enum {
+	SOURCE,	/* sourse for the next media device in pipe */
+	SINK,	/* sink linked to PA */
+};
+
 /* -----------------------------------------------------------------------------
  * Data Structures
  */
@@ -499,10 +504,7 @@ mt9m114_format_info(struct mt9m114 *sensor, unsigned int pad, u32 code)
 	unsigned int i;
 
 	switch (pad) {
-	case 0:
-		return &mt9m114_format_infos[num_formats - 1];
-
-	case 1:
+	case SOURCE:
 		if (sensor->bus_cfg.bus_type == V4L2_MBUS_CSI2_DPHY)
 			flag = MT9M114_FMT_FLAG_CSI2;
 		else
@@ -517,6 +519,9 @@ mt9m114_format_info(struct mt9m114 *sensor, unsigned int pad, u32 code)
 		}
 
 		return mt9m114_default_format_info(sensor);
+
+	case SINK:
+		return &mt9m114_format_infos[num_formats - 1];
 
 	default:
 		return NULL;
@@ -807,8 +812,8 @@ static int mt9m114_configure_pa(struct mt9m114 *sensor,
 	u64 read_mode;
 	int ret;
 
-	format = v4l2_subdev_state_get_format(state, 0);
-	crop = v4l2_subdev_state_get_crop(state, 0);
+	format = v4l2_subdev_state_get_format(state, SOURCE);
+	crop = v4l2_subdev_state_get_crop(state, SOURCE);
 
 	ret = cci_read(sensor->regmap, MT9M114_CAM_SENSOR_CONTROL_READ_MODE,
 		       &read_mode, NULL);
@@ -872,10 +877,10 @@ static int mt9m114_configure_ifp(struct mt9m114 *sensor,
 	u64 output_format;
 	int ret = 0;
 
-	format = v4l2_subdev_state_get_format(state, 1);
-	info = mt9m114_format_info(sensor, 1, format->code);
-	crop = v4l2_subdev_state_get_crop(state, 0);
-	compose = v4l2_subdev_state_get_compose(state, 0);
+	format = v4l2_subdev_state_get_format(state, SOURCE);
+	info = mt9m114_format_info(sensor, SOURCE, format->code);
+	crop = v4l2_subdev_state_get_crop(state, SINK);
+	compose = v4l2_subdev_state_get_compose(state, SINK);
 
 	ret = cci_read(sensor->regmap, MT9M114_CAM_OUTPUT_FORMAT,
 		       &output_format, NULL);
@@ -1090,7 +1095,7 @@ static int mt9m114_pa_s_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 
 	state = v4l2_subdev_get_locked_active_state(&sensor->pa.sd);
-	format = v4l2_subdev_state_get_format(state, 0);
+	format = v4l2_subdev_state_get_format(state, SOURCE);
 
 	switch (ctrl->id) {
 	case V4L2_CID_HBLANK:
@@ -1202,14 +1207,14 @@ static int mt9m114_pa_init_state(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect *crop;
 
-	crop = v4l2_subdev_state_get_crop(state, 0);
+	crop = v4l2_subdev_state_get_crop(state, SOURCE);
 
 	crop->left = 0;
 	crop->top = 0;
 	crop->width = MT9M114_PIXEL_ARRAY_WIDTH;
 	crop->height = MT9M114_PIXEL_ARRAY_HEIGHT;
 
-	format = v4l2_subdev_state_get_format(state, 0);
+	format = v4l2_subdev_state_get_format(state, SOURCE);
 
 	format->width = MT9M114_PIXEL_ARRAY_WIDTH;
 	format->height = MT9M114_PIXEL_ARRAY_HEIGHT;
@@ -1404,7 +1409,7 @@ static int mt9m114_pa_init(struct mt9m114 *sensor)
 	/* Initialize the media entity. */
 	sd->entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	sd->entity.ops = &mt9m114_entity_ops;
-	pads[0].flags = MEDIA_PAD_FL_SOURCE;
+	pads[SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 	ret = media_entity_pads_init(&sd->entity, 1, pads);
 	if (ret < 0)
 		return ret;
@@ -1467,7 +1472,7 @@ static int mt9m114_pa_init(struct mt9m114 *sensor)
 
 	/* Update the range of the blanking controls based on the format. */
 	state = v4l2_subdev_lock_and_get_active_state(sd);
-	format = v4l2_subdev_state_get_format(state, 0);
+	format = v4l2_subdev_state_get_format(state, SOURCE);
 	mt9m114_pa_ctrl_update_blanking(sensor, format);
 	v4l2_subdev_unlock_state(state);
 
@@ -1704,7 +1709,7 @@ static int mt9m114_ifp_init_state(struct v4l2_subdev *sd,
 	struct v4l2_rect *crop;
 	struct v4l2_rect *compose;
 
-	format = v4l2_subdev_state_get_format(state, 0);
+	format = v4l2_subdev_state_get_format(state, SINK);
 
 	format->width = MT9M114_PIXEL_ARRAY_WIDTH;
 	format->height = MT9M114_PIXEL_ARRAY_HEIGHT;
@@ -1715,21 +1720,21 @@ static int mt9m114_ifp_init_state(struct v4l2_subdev *sd,
 	format->quantization = V4L2_QUANTIZATION_FULL_RANGE;
 	format->xfer_func = V4L2_XFER_FUNC_NONE;
 
-	crop = v4l2_subdev_state_get_crop(state, 0);
+	crop = v4l2_subdev_state_get_crop(state, SINK);
 
 	crop->left = 4;
 	crop->top = 4;
 	crop->width = format->width - 8;
 	crop->height = format->height - 8;
 
-	compose = v4l2_subdev_state_get_compose(state, 0);
+	compose = v4l2_subdev_state_get_compose(state, SINK);
 
 	compose->left = 0;
 	compose->top = 0;
 	compose->width = crop->width;
 	compose->height = crop->height;
 
-	format = v4l2_subdev_state_get_format(state, 1);
+	format = v4l2_subdev_state_get_format(state, SOURCE);
 
 	format->width = compose->width;
 	format->height = compose->height;
@@ -1754,14 +1759,7 @@ static int mt9m114_ifp_enum_mbus_code(struct v4l2_subdev *sd,
 	unsigned int i;
 
 	switch (code->pad) {
-	case 0:
-		if (code->index != 0)
-			return -EINVAL;
-
-		code->code = mt9m114_format_infos[num_formats - 1].code;
-		return 0;
-
-	case 1:
+	case SOURCE:
 		if (sensor->bus_cfg.bus_type == V4L2_MBUS_CSI2_DPHY)
 			flag = MT9M114_FMT_FLAG_CSI2;
 		else
@@ -1783,6 +1781,13 @@ static int mt9m114_ifp_enum_mbus_code(struct v4l2_subdev *sd,
 
 		return -EINVAL;
 
+	case SINK:
+		if (code->index != 0)
+			return -EINVAL;
+
+		code->code = mt9m114_format_infos[num_formats - 1].code;
+		return 0;
+
 	default:
 		return -EINVAL;
 	}
@@ -1802,7 +1807,7 @@ static int mt9m114_ifp_enum_framesizes(struct v4l2_subdev *sd,
 	if (!info || info->code != fse->code)
 		return -EINVAL;
 
-	if (fse->pad == 0) {
+	if (fse->pad == SINK) {
 		fse->min_width = MT9M114_PIXEL_ARRAY_MIN_OUTPUT_WIDTH;
 		fse->max_width = MT9M114_PIXEL_ARRAY_WIDTH;
 		fse->min_height = MT9M114_PIXEL_ARRAY_MIN_OUTPUT_HEIGHT;
@@ -1810,7 +1815,7 @@ static int mt9m114_ifp_enum_framesizes(struct v4l2_subdev *sd,
 	} else {
 		const struct v4l2_rect *crop;
 
-		crop = v4l2_subdev_state_get_crop(state, 0);
+		crop = v4l2_subdev_state_get_crop(state, SINK);
 
 		fse->max_width = crop->width;
 		fse->max_height = crop->height;
@@ -1886,7 +1891,7 @@ static int mt9m114_ifp_set_fmt(struct v4l2_subdev *sd,
 
 	format = v4l2_subdev_state_get_format(state, fmt->pad);
 
-	if (fmt->pad == 0) {
+	if (fmt->pad == SINK) {
 		/* Only the size can be changed on the sink pad. */
 		format->width = clamp(ALIGN(fmt->format.width, 8),
 				      MT9M114_PIXEL_ARRAY_MIN_OUTPUT_WIDTH,
@@ -1901,7 +1906,7 @@ static int mt9m114_ifp_set_fmt(struct v4l2_subdev *sd,
 		const struct mt9m114_format_info *info;
 
 		/* Only the media bus code can be changed on the source pad. */
-		info = mt9m114_format_info(sensor, 1, fmt->format.code);
+		info = mt9m114_format_info(sensor, SOURCE, fmt->format.code);
 
 		/*
 		 * If the output format changes from/to RAW10 then the crop
@@ -1933,12 +1938,12 @@ static int mt9m114_ifp_get_selection(struct v4l2_subdev *sd,
 	int ret = 0;
 
 	/* Crop and compose are only supported on the sink pad. */
-	if (sel->pad != 0)
+	if (sel->pad != SINK)
 		return -EINVAL;
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-		sel->r = *v4l2_subdev_state_get_crop(state, 0);
+		sel->r = *v4l2_subdev_state_get_crop(state, SINK);
 		break;
 
 	case V4L2_SEL_TGT_CROP_DEFAULT:
@@ -1948,7 +1953,7 @@ static int mt9m114_ifp_get_selection(struct v4l2_subdev *sd,
 		 * For source pad formats other then RAW10 this gets reduced
 		 * by 4 pixels on each side for demosaicing.
 		 */
-		format = v4l2_subdev_state_get_format(state, 0);
+		format = v4l2_subdev_state_get_format(state, SINK);
 		border = mt9m114_ifp_get_border(state);
 
 		sel->r.left = border;
@@ -1958,7 +1963,7 @@ static int mt9m114_ifp_get_selection(struct v4l2_subdev *sd,
 		break;
 
 	case V4L2_SEL_TGT_COMPOSE:
-		sel->r = *v4l2_subdev_state_get_compose(state, 0);
+		sel->r = *v4l2_subdev_state_get_compose(state, SINK);
 		break;
 
 	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
@@ -1967,7 +1972,7 @@ static int mt9m114_ifp_get_selection(struct v4l2_subdev *sd,
 		 * The compose default and bounds sizes are equal to the sink
 		 * crop rectangle size.
 		 */
-		crop = v4l2_subdev_state_get_crop(state, 0);
+		crop = v4l2_subdev_state_get_crop(state, SINK);
 		sel->r.left = 0;
 		sel->r.top = 0;
 		sel->r.width = crop->width;
@@ -1996,20 +2001,20 @@ static int mt9m114_ifp_set_selection(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	/* Crop and compose are only supported on the sink pad. */
-	if (sel->pad != 0)
+	if (sel->pad != SINK)
 		return -EINVAL;
 
-	crop = v4l2_subdev_state_get_crop(state, 0);
+	crop = v4l2_subdev_state_get_crop(state, SINK);
 
 	/* Crop and compose cannot be changed when bypassing the scaler. */
-	src_format = v4l2_subdev_state_get_format(state, 1);
+	src_format = v4l2_subdev_state_get_format(state, SOURCE);
 	if (src_format->code == MEDIA_BUS_FMT_SGRBG10_1X10) {
 		sel->r = *crop;
 		return 0;
 	}
 
-	format = v4l2_subdev_state_get_format(state, 0);
-	compose = v4l2_subdev_state_get_compose(state, 0);
+	format = v4l2_subdev_state_get_format(state, SINK);
+	compose = v4l2_subdev_state_get_compose(state, SINK);
 
 	if (sel->target == V4L2_SEL_TGT_CROP) {
 		/*
@@ -2079,7 +2084,7 @@ static int mt9m114_ifp_registered(struct v4l2_subdev *sd)
 	}
 
 	ret = media_create_pad_link(&sensor->pa.sd.entity, 0,
-				    &sensor->ifp.sd.entity, 0,
+				    &sensor->ifp.sd.entity, SINK,
 				    MEDIA_LNK_FL_ENABLED |
 				    MEDIA_LNK_FL_IMMUTABLE);
 	if (ret < 0) {
@@ -2137,8 +2142,8 @@ static int mt9m114_ifp_init(struct mt9m114 *sensor)
 	/* Initialize the media entity. */
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_ISP;
 	sd->entity.ops = &mt9m114_entity_ops;
-	pads[0].flags = MEDIA_PAD_FL_SINK;
-	pads[1].flags = MEDIA_PAD_FL_SOURCE;
+	pads[SOURCE].flags = MEDIA_PAD_FL_SOURCE;
+	pads[SINK].flags = MEDIA_PAD_FL_SINK;
 	ret = media_entity_pads_init(&sd->entity, 2, pads);
 	if (ret < 0)
 		return ret;
