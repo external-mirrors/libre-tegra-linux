@@ -1833,6 +1833,7 @@ static int mt9m114_ifp_enum_frameintervals(struct v4l2_subdev *sd,
 {
 	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
 	const struct mt9m114_format_info *info;
+	const struct v4l2_rect *crop;
 
 	if (fie->index > 0)
 		return -EINVAL;
@@ -1840,6 +1841,12 @@ static int mt9m114_ifp_enum_frameintervals(struct v4l2_subdev *sd,
 	info = mt9m114_format_info(sensor, fie->pad, fie->code);
 	if (!info || info->code != fie->code)
 		return -EINVAL;
+
+	if (fie->pad == SOURCE) {
+		crop = v4l2_subdev_state_get_crop(state, SINK);
+		if (!crop || crop->width != fie->width)
+			return -EINVAL;
+	}
 
 	fie->interval.numerator = 1;
 	fie->interval.denominator = MT9M114_MAX_FRAME_RATE;
