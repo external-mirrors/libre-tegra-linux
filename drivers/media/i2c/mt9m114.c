@@ -1650,53 +1650,31 @@ static int mt9m114_ifp_s_stream(struct v4l2_subdev *sd, int enable)
 	return ret;
 }
 
-static int mt9m114_ifp_get_frame_interval(struct v4l2_subdev *sd,
-					  struct v4l2_subdev_state *sd_state,
-					  struct v4l2_subdev_frame_interval *interval)
-{
-	struct v4l2_fract *ival = &interval->interval;
-	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
-
-	/*
-	 * FIXME: Implement support for V4L2_SUBDEV_FORMAT_TRY, using the V4L2
-	 * subdev active state API.
-	 */
-	if (interval->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-		return -EINVAL;
-
-	ival->numerator = 1;
-	ival->denominator = sensor->ifp.frame_rate;
-
-	return 0;
-}
-
 static int mt9m114_ifp_set_frame_interval(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *sd_state,
 					  struct v4l2_subdev_frame_interval *interval)
 {
 	struct v4l2_fract *ival = &interval->interval;
 	struct mt9m114 *sensor = ifp_to_mt9m114(sd);
+	unsigned int framerate;
 	int ret = 0;
 
-	/*
-	 * FIXME: Implement support for V4L2_SUBDEV_FORMAT_TRY, using the V4L2
-	 * subdev active state API.
-	 */
-	if (interval->which != V4L2_SUBDEV_FORMAT_ACTIVE)
-		return -EINVAL;
-
 	if (ival->numerator != 0 && ival->denominator != 0)
-		sensor->ifp.frame_rate = min_t(unsigned int,
-					       ival->denominator / ival->numerator,
-					       MT9M114_MAX_FRAME_RATE);
+		framerate = min_t(unsigned int,
+				  ival->denominator / ival->numerator,
+				  MT9M114_MAX_FRAME_RATE);
 	else
-		sensor->ifp.frame_rate = MT9M114_MAX_FRAME_RATE;
+		framerate = MT9M114_MAX_FRAME_RATE;
+
+	ival = v4l2_subdev_state_get_interval(sd_state, interval->pad);
 
 	ival->numerator = 1;
-	ival->denominator = sensor->ifp.frame_rate;
+	ival->denominator = framerate;
 
-	if (sensor->streaming)
-		ret = mt9m114_set_frame_rate(sensor);
+	interval->interval = *ival;
+
+	if (interval->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+		sensor->ifp.frame_rate = framerate;
 
 	return ret;
 }
@@ -1708,6 +1686,7 @@ static int mt9m114_ifp_init_state(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect *crop;
 	struct v4l2_rect *compose;
+	struct v4l2_fract *ival;
 
 	format = v4l2_subdev_state_get_format(state, SINK);
 
@@ -1744,6 +1723,10 @@ static int mt9m114_ifp_init_state(struct v4l2_subdev *sd,
 	format->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
 	format->quantization = V4L2_QUANTIZATION_DEFAULT;
 	format->xfer_func = V4L2_XFER_FUNC_DEFAULT;
+
+	ival = v4l2_subdev_state_get_interval(state, SOURCE);
+	ival->numerator = 1;
+	ival->denominator = MT9M114_DEF_FRAME_RATE;
 
 	return 0;
 }
@@ -1849,7 +1832,7 @@ static int mt9m114_ifp_enum_frameintervals(struct v4l2_subdev *sd,
 	}
 
 	fie->interval.numerator = 1;
-	fie->interval.denominator = MT9M114_MAX_FRAME_RATE;
+	fie->interval.denominator = MT9M114_DEF_FRAME_RATE;
 
 	return 0;
 }
@@ -2116,7 +2099,7 @@ static const struct v4l2_subdev_pad_ops mt9m114_ifp_pad_ops = {
 	.set_fmt = mt9m114_ifp_set_fmt,
 	.get_selection = mt9m114_ifp_get_selection,
 	.set_selection = mt9m114_ifp_set_selection,
-	.get_frame_interval = mt9m114_ifp_get_frame_interval,
+	.get_frame_interval = v4l2_subdev_get_frame_interval,
 	.set_frame_interval = mt9m114_ifp_set_frame_interval,
 };
 
