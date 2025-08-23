@@ -49,7 +49,6 @@
 #define OV9726_FRAME_DROP			CCI_REG8(0x0105)
 #define   OV9726_FRAME_DROP_ON			1
 #define OV9726_DATA_DEPTH			CCI_REG16(0x0112)
-#define   OV9726_DATA_DEPTH_RAW8		0x08
 #define   OV9726_DATA_DEPTH_RAW10		0x0a
 
 /* integration time registers */
@@ -114,8 +113,8 @@
 enum {
 	OV9726_MODE_1280x800,
 	OV9726_MODE_1280x720,
-	OV9726_MODE_640x400,
-	OV9726_MODE_320x200
+//	OV9726_MODE_640x400,
+//	OV9726_MODE_320x200
 };
 
 struct ov9726_mode {
@@ -153,9 +152,7 @@ struct ov9726 {
 		u32 pix_clk_div;
 	} pll;
 
-	/* Current mode */
 	const struct ov9726_mode *cur_mode;
-	u32 data_depth;
 
 	u64 pixel_clk;
 	s64 default_link_freq;
@@ -188,6 +185,7 @@ static const struct ov9726_mode ov9726_modes[] = {
 			.height	= 728,
 		},
 	},
+#if 0
 	[OV9726_MODE_640x400] = {
 		.width		= 640,
 		.height		= 400,
@@ -214,6 +212,7 @@ static const struct ov9726_mode ov9726_modes[] = {
 			.height	= 0,
 		},
 	},
+#endif
 };
 
 /*
@@ -229,11 +228,6 @@ static const u32 ov9726_mbus_formats[] = {
 	MEDIA_BUS_FMT_SGBRG10_1X10,
 	MEDIA_BUS_FMT_SGRBG10_1X10,
 	MEDIA_BUS_FMT_SRGGB10_1X10,
-
-	MEDIA_BUS_FMT_SBGGR8_1X8,
-	MEDIA_BUS_FMT_SGBRG8_1X8,
-	MEDIA_BUS_FMT_SGRBG8_1X8,
-	MEDIA_BUS_FMT_SRGGB8_1X8,
 };
 
 static inline struct ov9726 *sd_to_ov9726(struct v4l2_subdev *sd)
@@ -264,24 +258,6 @@ static u32 ov9726_get_format_code(struct ov9726 *sensor, u32 code, bool test)
 	    (sensor->hflip->val ? 1 : 0);
 
 	return ov9726_mbus_formats[i];
-}
-
-static u32 ov9726_get_format_bpp(const struct v4l2_mbus_framefmt *format)
-{
-	switch (format->code) {
-	case MEDIA_BUS_FMT_SRGGB8_1X8:
-	case MEDIA_BUS_FMT_SGRBG8_1X8:
-	case MEDIA_BUS_FMT_SGBRG8_1X8:
-	case MEDIA_BUS_FMT_SBGGR8_1X8:
-		return 8;
-
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-	default:
-		return 10;
-	}
 }
 
 static int ov9726_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -614,7 +590,7 @@ static int ov9726_start_streaming(struct ov9726 *sensor)
 			OV9726_GROUP_WRITE_ON, &ret);
 
 	cci_write(sensor->regmap, OV9726_DATA_DEPTH,
-		  sensor->data_depth | sensor->data_depth << 8, &ret);
+		  OV9726_DATA_DEPTH_RAW10 | OV9726_DATA_DEPTH_RAW10 << 8, &ret);
 
 	cci_update_bits(sensor->regmap, OV9726_GROUP_WRITE, OV9726_GROUP_WRITE_ON,
 			0, &ret);
@@ -710,10 +686,10 @@ static int ov9726_enum_mbus_code(struct v4l2_subdev *sd,
 {
 	struct ov9726 *sensor = sd_to_ov9726(sd);
 
-	if (code->index >= (ARRAY_SIZE(ov9726_mbus_formats) / 4))
+	if (code->index > 0)
 		return -EINVAL;
 
-	code->code = ov9726_get_format_code(sensor, ov9726_mbus_formats[code->index * 4], false);
+	code->code = ov9726_get_format_code(sensor, ov9726_mbus_formats[code->index], false);
 
 	return 0;
 }
@@ -794,10 +770,8 @@ static int ov9726_set_format(struct v4l2_subdev *sd,
 	interval->numerator = 1;
 	interval->denominator = mode->framerate;
 
-	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE)	{
+	if (format->which == V4L2_SUBDEV_FORMAT_ACTIVE)
 		sensor->cur_mode = mode;
-		sensor->data_depth = ov9726_get_format_bpp(fmt);
-	}
 
 	return 0;
 }
@@ -1153,7 +1127,6 @@ static int ov9726_probe(struct i2c_client *client)
 	}
 
 	sensor->cur_mode = &ov9726_modes[OV9726_MODE_1280x800];
-	sensor->data_depth = OV9726_DATA_DEPTH_RAW10;
 
 	ret = ov9726_init_subdev(sensor, client);
 	if (ret < 0) {
