@@ -1804,6 +1804,37 @@
 		vbus-supply = <&avdd_3v3_periph>;
 	};
 
+	/* Modem line */
+	hsic_usb: usb@7d004000 {
+		status = "okay";
+		phy_type = "hsic";
+	};
+
+	usb-phy@7d004000 {
+		status = "okay";
+		phy_type = "hsic";
+
+		vbus-supply = <&avdd_3v3_periph>;
+	};
+
+	modem-power {
+		compatible = "infineon,xmm6260-power";
+
+		interrupt-parent = <&gpio>;
+		interrupts = <TEGRA_GPIO(V, 0) IRQ_TYPE_EDGE_BOTH>;
+
+		enable-gpios = <&gpio TEGRA_GPIO(O, 0) GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio TEGRA_GPIO(V, 1) GPIO_ACTIVE_LOW>;
+
+		link-slavewake-gpios = <&gpio TEGRA_GPIO(S, 7) GPIO_ACTIVE_HIGH>;
+		link-hostwake-gpios = <&gpio TEGRA_GPIO(V, 0) GPIO_ACTIVE_HIGH>;
+
+		phy-enable-gpios = <&gpio TEGRA_GPIO(U, 5) GPIO_ACTIVE_HIGH>;
+
+		usb-bus = <&hsic_usb>, <&phy2>;
+		vbus-supply = <&vdd_3v3_vbat>;
+	};
+
 	/* PMIC has a built-in 32KHz oscillator which is used by PMC */
 	clk32k_in: clock-32k {
 		compatible = "fixed-clock";
