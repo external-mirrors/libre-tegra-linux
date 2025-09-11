@@ -126,6 +126,7 @@ config SMI240
 	  called smi240.
 
 source "drivers/iio/imu/smi330/Kconfig"
+source "drivers/iio/imu/st_lsm6db0/Kconfig"
 source "drivers/iio/imu/st_lsm6dsx/Kconfig"
 source "drivers/iio/imu/st_lsm9ds0/Kconfig"
 

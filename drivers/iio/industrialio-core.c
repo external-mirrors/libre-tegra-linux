@@ -98,6 +98,12 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_CHROMATICITY] = "chromaticity",
 	[IIO_ATTENTION] = "attention",
 	[IIO_ALTCURRENT] = "altcurrent",
+	[IIO_SIGN_MOTION] = "sign_motion",
+	[IIO_QUATERNION] = "quaternion",
+	[IIO_STEP_DETECTOR] = "step_detector",
+	[IIO_STEP_COUNTER] = "step_counter",
+	[IIO_EULER_ANGLES] = "euler",
+	[IIO_LINEAR_ACCEL] = "linear_accel",
 };
 
 static const char * const iio_modifier_names[] = {
@@ -157,6 +163,8 @@ static const char * const iio_modifier_names[] = {
 	[IIO_MOD_ACTIVE] = "active",
 	[IIO_MOD_REACTIVE] = "reactive",
 	[IIO_MOD_APPARENT] = "apparent",
+	[IIO_MOD_MODULE] = "module",
+	[IIO_MOD_ACCURACY] = "accuracy",
 };
 
 /* relies on pairs of these shared then separate */
