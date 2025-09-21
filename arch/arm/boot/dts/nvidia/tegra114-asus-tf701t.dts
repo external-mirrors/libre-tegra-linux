@@ -1244,6 +1244,14 @@
 				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
 			};
 
+			gpio-w3-aud {
+				nvidia,pins = "gpio_w3_aud_pw3";
+				nvidia,function = "spi6";
+				nvidia,pull = <TEGRA_PIN_PULL_UP>;
+				nvidia,tristate = <TEGRA_PIN_DISABLE>;
+				nvidia,enable-input = <TEGRA_PIN_ENABLE>;
+			};
+
 			usb-vbus {
 				nvidia,pins = "usb_vbus_en0_pn4",
 					      "usb_vbus_en1_pn5";
@@ -1356,8 +1364,16 @@
 			compatible = "realtek,rt5639";
 			reg = <0x1c>;
 
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(W, 3) IRQ_TYPE_LEVEL_HIGH>;
+
 			realtek,ldo1-en-gpios =
 				<&gpio TEGRA_GPIO(V, 3) GPIO_ACTIVE_HIGH>;
+
+// codec 1/2/3 en
+//#define TEGRA_GPIO_CODEC1_EN	TEGRA_GPIO_PP3
+//#define TEGRA_GPIO_CODEC2_EN	TEGRA_GPIO_PP1
+//#define TEGRA_GPIO_CODEC3_EN	TEGRA_GPIO_PV0
 
 			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
 			clock-names = "mclk";
