@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
-/dts-v1/;
 
 #include <dt-bindings/input/input.h>
 #include "tegra114.dtsi"
 
 / {
-	model = "Tegra Note 7";
 	compatible = "nvidia,tn7", "nvidia,tegra114";
 
 	chosen {

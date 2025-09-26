@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+
+#include "tegra114-nvidia-tegratab-common.dtsi"
+
+/ {
+	model = "Nvidia Tegra Note 7 (P1640)";
+};
