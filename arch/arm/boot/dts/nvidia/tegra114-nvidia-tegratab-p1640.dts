@@ -6,11 +6,213 @@
 / {
 	model = "Nvidia Tegra Note 7 (P1640)";
 
+	serial@70006200 {
+		bluetooth {
+			clocks = <&palmas_clk32k>;
+			clock-names = "ext_clock";
+
+			enable-gpios = <&gpio TEGRA_GPIO(R, 1) GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	i2c@7000c000 {
+		rt5639: audio-codec@1c {
+			compatible = "realtek,rt5639";
+			reg = <0x1c>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(W, 3) IRQ_TYPE_LEVEL_HIGH>;
+
+			realtek,ldo1-en-gpios =
+				<&gpio TEGRA_GPIO(V, 3) GPIO_ACTIVE_HIGH>;
+
+// codec 1/2/3 en
+//#define TEGRA_GPIO_CODEC1_EN	TEGRA_GPIO_PP3
+//#define TEGRA_GPIO_CODEC2_EN	TEGRA_GPIO_PP1
+//#define TEGRA_GPIO_CODEC3_EN	TEGRA_GPIO_PV0
+
+			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
+			clock-names = "mclk";
+		};
+
+		temp_sensor: temperature-sensor@4c {
+			compatible = "onnn,nct1008";
+			reg = <0x4c>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(O, 4) IRQ_TYPE_EDGE_FALLING>;
+
+			vcc-supply = <&vdd_1v8_vio>;
+			#thermal-sensor-cells = <1>;
+		};
+
+		imu@69 {
+			mount-matrix =  "1",  "0",  "0",
+					"0",  "1",  "0",
+					"0",  "0",  "1";
+
+			i2c-gate {
+				magnetometer@d {
+					mount-matrix =  "0",  "1",  "0",
+							"1",  "0",  "0",
+							"0",  "0", "-1";
+				};
+			};
+		};
+
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+
+		power-sensor@44 {
+			compatible = "ti,ina230";
+			reg = <0x44>;
+
+			shunt-resistor = <5000>;
+
+			vs-supply = <&vdd_3v3_sys>;
+			#io-channel-cells = <1>;
+		};
+	};
+
+	extcon-keys {
+		compatible = "gpio-keys";
+
+		switch-hall-sensor {
+			label = "Hall Sensor";
+			gpios = <&gpio TEGRA_GPIO(C, 7) GPIO_ACTIVE_LOW>;
+			linux,code = <SW_LID>;
+			wakeup-source;
+		};
+
+		switch-tablet-mode {
+			label = "Tablet mode";
+			gpios = <&gpio TEGRA_GPIO(O, 5) GPIO_ACTIVE_LOW>; // A00 uses PQ1, A01 uses PO5
+			linux,code = <SW_TABLET_MODE>;
+			wakeup-source;
+		};
+	};
+
+	gpio-keys {
+		key-volume-down {
+			label = "Volume Down";
+			gpios = <&gpio TEGRA_GPIO(Q, 2) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			debounce-interval = <30>;
+		};
+	};
+
 	i2c@7000d000 {
 		pmic@58 {
 			palmas_clk32k: palmas_clk32kg@0 {
 				compatible = "ti,palmas-clk32kg";
 				#clock-cells = <0>;
+			};
+		};
+	};
+
+	pwrseq-wifi {
+		compatible = "mmc-pwrseq-simple";
+
+		clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_3>;
+		clock-names = "ext_clock";
+
+		assigned-clocks = <&tegra_car TEGRA114_CLK_EXTERN3>,
+				  <&tegra_pmc TEGRA_PMC_CLK_OUT_3>;
+		assigned-clock-rates = <32768>;
+
+		assigned-clock-parents = <&tegra_car TEGRA114_CLK_CLK_32K>,
+					 <&tegra_car TEGRA114_CLK_EXTERN3>;
+	};
+
+	sound {
+		compatible = "nvidia,tegra-audio-rt5639-tegratab",
+			     "nvidia,tegra-audio-rt5640";
+		nvidia,model = "Nvidia Tegra Note 7 RT5639";
+
+		nvidia,audio-codec = <&rt5639>;
+	};
+
+	thermal-zones {
+		/*
+		 * NCT72 has two sensors:
+		 *
+		 *	0: internal that monitors ambient/skin temperature
+		 *	1: external that is connected to the CPU's diode
+		 *
+		 * Ideally we should use userspace thermal governor,
+		 * but it's a much more complex solution.  The "skin"
+		 * zone exists as a simpler solution which prevents
+		 * tablet from getting too hot from a user's tactile
+		 * perspective. The CPU zone is intended to protect
+		 * silicon from damage.
+		 */
+
+		nct72-skin-thermal {
+			polling-delay-passive = <1100>; /* milliseconds */
+			polling-delay = <15000>; /* milliseconds */
+
+			thermal-sensors = <&temp_sensor 0>;
+
+			trips {
+				skip_alert_trip: skin-alert {
+					/* throttle at 57C until temperature drops to 56.5C */
+					temperature = <57000>;
+					hysteresis = <500>;
+					type = "passive";
+				};
+
+				skin-crit {
+					/* shut down at 65C */
+					temperature = <65000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map-skip {
+					trip = <&skip_alert_trip>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		nct72-cpu-thermal {
+			polling-delay-passive = <1100>; /* milliseconds */
+			polling-delay = <15000>; /* milliseconds */
+
+			thermal-sensors = <&temp_sensor 1>;
+
+			trips {
+				cpu_alert_trip: cpu-alert {
+					/* throttle at 75C until temperature drops to 74.5C */
+					temperature = <75000>;
+					hysteresis = <500>;
+					type = "passive";
+				};
+
+				cpu-crit {
+					/* shut down at 105C */
+					temperature = <105000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map-cpu {
+					trip = <&cpu_alert_trip>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
 			};
 		};
 	};

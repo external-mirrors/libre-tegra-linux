@@ -6,8 +6,81 @@
 / {
 	model = "Nvidia Tegra Note 7 (P1988)";
 
+	serial@70006200 {
+		bluetooth {
+			clocks = <&palmas_clk32k>;
+			clock-names = "ext_clock";
+
+			enable-gpios = <&gpio TEGRA_GPIO(R, 1) GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	i2c@7000c000 {
+		rt5639: audio-codec@1c {
+			compatible = "realtek,rt5639";
+			reg = <0x1c>;
+
+			interrupt-parent = <&gpio>;
+			interrupts = <TEGRA_GPIO(W, 3) IRQ_TYPE_LEVEL_HIGH>;
+
+			realtek,ldo1-en-gpios =
+				<&gpio TEGRA_GPIO(V, 3) GPIO_ACTIVE_HIGH>;
+
+// codec 1/2/3 en
+//#define TEGRA_GPIO_CODEC1_EN	TEGRA_GPIO_PP3
+//#define TEGRA_GPIO_CODEC2_EN	TEGRA_GPIO_PP1
+//#define TEGRA_GPIO_CODEC3_EN	TEGRA_GPIO_PV0
+
+			clocks = <&tegra_pmc TEGRA_PMC_CLK_OUT_1>;
+			clock-names = "mclk";
+		};
+
+		imu@69 {
+			mount-matrix =  "0", "-1",  "0",
+					"1",  "0",  "0",
+					"0",  "0",  "1";
+
+			i2c-gate {
+				magnetometer@d {
+					mount-matrix =  "0",  "1",  "0",
+							"1",  "0",  "0",
+							"0",  "0", "-1";
+				};
+			};
+		};
+
+	};
+
+	i2c@7000c400 {
+		status = "okay";
+		clock-frequency = <100000>;
+
+		power-sensor@44 {
+			compatible = "ti,ina230";
+			reg = <0x44>;
+
+			shunt-resistor = <5000>;
+
+			vs-supply = <&vdd_3v3_sys>;
+			#io-channel-cells = <1>;
+		};
+	};
+
 	i2c@7000d000 {
 		pmic@58 {
+			palmas_gpadc: adc {
+				compatible = "ti,palmas-gpadc";
+				interrupts = <18 IRQ_TYPE_NONE>,
+					     <16 IRQ_TYPE_NONE>,
+					     <17 IRQ_TYPE_NONE>;
+
+				ti,channel0-current-microamp = <5>;
+				ti,channel3-current-microamp = <400>;
+				ti,enable-extended-delay;
+
+				#io-channel-cells = <1>;
+			};
+
 			palmas_clk32k: palmas_clk32kg@0 {
 				compatible = "ti,palmas-clk32kg";
 				#clock-cells = <0>;
@@ -23,6 +96,40 @@
 		};
 	};
 
+	extcon-keys {
+		compatible = "gpio-keys";
+
+		switch-hall-sensor {
+			label = "Hall Sensor";
+			gpios = <&gpio TEGRA_GPIO(C, 7) GPIO_ACTIVE_LOW>;
+			linux,code = <SW_LID>;
+			wakeup-source;
+		};
+
+		switch-tablet-mode {
+			label = "Tablet mode";
+			gpios = <&gpio TEGRA_GPIO(O, 5) GPIO_ACTIVE_LOW>;
+			linux,code = <SW_TABLET_MODE>;
+			wakeup-source;
+		};
+	};
+
+	gpio-keys {
+		key-volume-down {
+			label = "Volume Down";
+			gpios = <&gpio TEGRA_GPIO(Q, 2) GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			debounce-interval = <30>;
+		};
+	};
+
+	pwrseq-wifi {
+		compatible = "mmc-pwrseq-simple";
+
+		clocks = <&palmas_clk32k>;
+		clock-names = "ext_clock";
+	};
+
 	regulator-gyro {
 		gpio = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_HIGH>;
 		enable-active-high;
@@ -31,5 +138,94 @@
 	regulator-hdmi-pll {
 		gpio = <&gpio TEGRA_GPIO(O, 6) GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+	};
+
+	sound {
+		compatible = "nvidia,tegra-audio-rt5639-tegratab",
+			     "nvidia,tegra-audio-rt5640";
+		nvidia,model = "Nvidia Tegra Note 7 RT5639";
+
+		nvidia,audio-codec = <&rt5639>;
+	};
+
+	thermistor: thermal-sensor-thermistor {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+
+		io-channels = <&palmas_gpadc 1>;
+		io-channel-names = "sensor-channel";
+
+		temperature-lookup-table = <
+			(-40000) 2726  (-35000) 2708  (-30000) 2683  (-25000) 2649
+			(-20000) 2605  (-15000) 2547  (-10000) 2475   (-5000) 2386
+			       0 2279      5000 2154     10000 2012     15000 1857
+			   20000 1691     25000 1521     30000 1351     35000 1187
+			   40000 1032     45000  889     50000  761     55000  648
+			   60000  549     65000  464     70000  392     75000  330
+			   80000  279     85000  235     90000  199     95000  168
+			  100000  143    105000  121    110000  103    115000   88
+			  120000   76    125000   65 >;
+	};
+
+	tdiode: thermal-sensor-tdiode {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+
+		io-channels = <&palmas_gpadc 3>;
+		io-channel-names = "sensor-channel";
+	};
+
+	thermal-zones {
+		thermistor-thermal {
+			polling-delay-passive = <1100>; /* milliseconds */
+			polling-delay = <15000>; /* milliseconds */
+
+			thermal-sensors = <&thermistor>;
+
+// shutdown at 78C
+
+			trips {
+				thermistor_trip: thermistor-alert {
+					temperature = <60000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+			};
+
+			cooling-maps {
+				map-thermistor {
+					trip = <&thermistor_trip>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
+
+		tdiode-thermal {
+			polling-delay-passive = <1100>; /* milliseconds */
+			polling-delay = <15000>; /* milliseconds */
+
+			thermal-sensors = <&tdiode>;
+
+			trips {
+				tdiode_trip: tdiode-alert {
+					temperature = <60000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+			};
+
+			cooling-maps {
+				map-tdiode {
+					trip = <&tdiode_trip>;
+					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+			};
+		};
 	};
 };
