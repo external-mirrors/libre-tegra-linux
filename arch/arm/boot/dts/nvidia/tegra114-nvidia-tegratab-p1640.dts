@@ -5,4 +5,13 @@
 
 / {
 	model = "Nvidia Tegra Note 7 (P1640)";
+
+	i2c@7000d000 {
+		pmic@58 {
+			palmas_clk32k: palmas_clk32kg@0 {
+				compatible = "ti,palmas-clk32kg";
+				#clock-cells = <0>;
+			};
+		};
+	};
 };

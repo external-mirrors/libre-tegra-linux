@@ -5,4 +5,31 @@
 
 / {
 	model = "Nvidia Tegra Note 7 (P1988)";
+
+	i2c@7000d000 {
+		pmic@58 {
+			palmas_clk32k: palmas_clk32kg@0 {
+				compatible = "ti,palmas-clk32kg";
+				#clock-cells = <0>;
+			};
+
+			pmic {
+				regulators {
+					ldo4 {
+						regulator-boot-on;
+					};
+				};
+			};
+		};
+	};
+
+	regulator-gyro {
+		gpio = <&gpio TEGRA_GPIO(R, 0) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	regulator-hdmi-pll {
+		gpio = <&gpio TEGRA_GPIO(O, 6) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 };
