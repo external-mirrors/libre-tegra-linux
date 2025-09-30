@@ -584,7 +584,7 @@ tegra_drm_schedule_job(struct tegra_drm *tegra,
 	int err;
 
 	sched_entity = &fpriv->sched_entities[channel->id];
-	err = drm_sched_job_init(&job->sched_job, sched_entity, 1, NULL);
+	err = drm_sched_job_init(&job->sched_job, sched_entity, 1, NULL, channel->id);
 	if (err) {
 		JOB_ERROR("failed to prepare job for scheduling: %d", err);
 		return err;
