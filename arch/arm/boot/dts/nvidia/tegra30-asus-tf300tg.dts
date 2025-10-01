@@ -11,20 +11,13 @@
 	gpio@6000d000 {
 		tf300tg-init-hog {
 			gpio-hog;
-			gpios = <TEGRA_GPIO(C, 6) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(D, 2) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(P, 1) GPIO_ACTIVE_HIGH>,
+			gpios = <TEGRA_GPIO(P, 1) GPIO_ACTIVE_HIGH>,
 				<TEGRA_GPIO(X, 5) GPIO_ACTIVE_HIGH>,
 				<TEGRA_GPIO(W, 3) GPIO_ACTIVE_HIGH>,
 				<TEGRA_GPIO(R, 3) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(U, 5) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(X, 7) GPIO_ACTIVE_HIGH>,
 				<TEGRA_GPIO(X, 0) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(Y, 2) GPIO_ACTIVE_HIGH>,
 				<TEGRA_GPIO(Y, 3) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(EE, 1) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(R, 7) GPIO_ACTIVE_HIGH>,
-				<TEGRA_GPIO(U, 3) GPIO_ACTIVE_HIGH>;
+				<TEGRA_GPIO(EE, 1) GPIO_ACTIVE_HIGH>;
 			output-low;
 		};
 	};
@@ -1081,6 +1074,19 @@
 		};
 	};
 
+	/* Modem line */
+	hsic_usb: usb@7d004000 {
+		status = "okay";
+		phy_type = "hsic";
+	};
+
+	usb-phy@7d004000 {
+		status = "okay";
+		phy_type = "hsic";
+
+		vbus-supply = <&vbus_1v2_hsic>;
+	};
+
 	dock_battery: battery-dock {
 		compatible = "simple-battery";
 		device-chemistry = "lithium-ion-polymer";
@@ -1107,6 +1113,57 @@
 		};
 	};
 
+#if 0
+	/* get regulator LDO6 for hsic power */
+	if (!reg_cardhu_hsic) {
+		reg_cardhu_hsic = regulator_get(NULL, "vddio_hsic");
+		if (IS_ERR_OR_NULL(reg_cardhu_hsic)) {
+			pr_err("TF300TG HSIC power on LDO6 failed\n");
+			reg_cardhu_hsic = NULL;
+			return PTR_ERR(reg_cardhu_hsic);
+		}
+		regulator_set_voltage(reg_cardhu_hsic, 1200000, 1200000);
+	}
+
+	.bb_rst = XMM_GPIO_BB_RST,	 // TEGRA_GPIO_PU3 //MOD_nRST_PWRDWN
+	.bb_on = XMM_GPIO_BB_ON,	 // TEGRA_GPIO_PX7 //MODEM_ON
+
+	.bb_vbat = BB_GPIO_VBAT_ON, 	 // TEGRA_GPIO_PC6  //MOD_VBAT_ON
+	.bb_rst_ind = BB_GPIO_RESET_IND, // TEGRA_GPIO_PEE1 //n_MOD_RST_IND // unused?
+
+	.bb_vbus = BB_GPIO_VBUS_ON,	 // TEGRA_GPIO_PD2  //MOD_VBUS_ON // unused?
+	.bb_sw_sel = BB_GPIO_SW_SEL,	 // TEGRA_GPIO_PP1  //USB_SW_SEL // unused?
+
+	.bb_sim_cd = BB_GPIO_SIM_DET,	 // TEGRA_GPIO_PW3  //n_SIM_CD // unused ?
+	.bb_sar_det = BB_GPIO_SAR_DET,	 // TEGRA_GPIO_PR3  //SAR_DET#_3G // unused?
+
+	.ipc_bb_wake = XMM_GPIO_IPC_BB_WAKE, // TEGRA_GPIO_PY2 //AP_WAKE_MOD
+	.ipc_ap_wake = XMM_GPIO_IPC_AP_WAKE, // TEGRA_GPIO_PU5 //MOD_WAKE_AP
+
+	.ipc_hsic_active = XMM_GPIO_IPC_HSIC_ACTIVE, // TEGRA_GPIO_PX0 //AP_Active
+	.ipc_hsic_sus_req = XMM_GPIO_IPC_HSIC_SUS_REQ, // TEGRA_GPIO_PY3 //MOD_suspend_req
+
+	.ipc_bb_force_crash = XMM_GPIO_IPC_BB_FORCE_CRASH, // TEGRA_GPIO_PN1
+#endif
+
+	modem-power {
+		compatible = "infineon,xmm6260-power";
+
+		interrupt-parent = <&gpio>;
+		interrupts = <TEGRA_GPIO(U, 5) IRQ_TYPE_EDGE_BOTH>;
+
+		enable-gpios = <&gpio TEGRA_GPIO(X, 7) GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio TEGRA_GPIO(U, 3) GPIO_ACTIVE_LOW>;
+
+		link-slavewake-gpio = <&gpio TEGRA_GPIO(Y, 2) GPIO_ACTIVE_HIGH>;
+		link-hostwake-gpio = <&gpio TEGRA_GPIO(U, 5) GPIO_ACTIVE_HIGH>;
+
+		phy-enable-gpio = <&gpio TEGRA_GPIO(R, 7) GPIO_ACTIVE_HIGH>;
+
+		usb-bus = <&hsic_usb>, <&phy2>;
+		vbus-supply = <&vbat_3v3_modem>;
+	};
+
 	opp-table-emc {
 		/delete-node/ opp-750000000-1300;
 		/delete-node/ opp-800000000-1300;
@@ -1117,6 +1174,26 @@
 		/delete-node/ opp-750000000;
 		/delete-node/ opp-800000000;
 		/delete-node/ opp-900000000;
+	};
+
+	vbat_3v3_modem: regulator-modem {
+		compatible = "regulator-fixed";
+		regulator-name = "vbat_3v3_modem";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio TEGRA_GPIO(C, 6) GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&vdd_3v3_sys>;
+	};
+
+	vbus_1v2_hsic: regulator-hsic {
+		compatible = "regulator-fixed";
+		regulator-name = "vddio_1v2_hsic";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		gpio = <&gpio TEGRA_GPIO(D, 2) GPIO_ACTIVE_HIGH>; // Test, not used in downstream
+		enable-active-high;
+		vin-supply = <&avdd_dsi_csi>;
 	};
 
 	sound {
