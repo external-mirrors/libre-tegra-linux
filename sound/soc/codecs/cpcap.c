@@ -673,6 +673,7 @@ static const struct snd_kcontrol_new cpcap_voice_loopback =
 static const struct snd_soc_dapm_widget cpcap_dapm_widgets[] = {
 	/* DAIs */
 	SND_SOC_DAPM_AIF_IN("HiFi RX", NULL, 0, SND_SOC_NOPM, 0, 0),
+	SND_SOC_DAPM_AIF_OUT("HiFi TX", NULL, 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_IN("Voice RX", NULL, 0, SND_SOC_NOPM, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("Voice TX", NULL, 0, SND_SOC_NOPM, 0, 0),
 
@@ -838,11 +839,13 @@ static const struct snd_soc_dapm_route intercon[] = {
 
 	/* Stream -> AIF */
 	{"HiFi RX", NULL, "HiFi Playback"},
+	{"HiFi Capture", NULL, "HiFi TX"},
 	{"Voice RX", NULL, "Voice Playback"},
 	{"Voice Capture", NULL, "Voice TX"},
 
 	/* AIF clocks */
 	{"HiFi RX", NULL, "HiFi DAI Clock"},
+	{"HiFi TX", NULL, "HiFi DAI Clock"},
 	{"Voice RX", NULL, "Voice DAI Clock"},
 	{"Voice TX", NULL, "Voice DAI Clock"},
 
@@ -853,6 +856,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	/* Highpass Filters */
 	{"Highpass Filter RX", NULL, "Voice RX"},
 	{"Voice TX", NULL, "Highpass Filter TX"},
+	{"HiFi TX", NULL, "Highpass Filter TX"},
 
 	/* AIF -> DAC mapping */
 	{"DAC HiFi", NULL, "HiFi RX"},
@@ -1541,6 +1545,14 @@ static struct snd_soc_dai_driver cpcap_dai[] = {
 		.channels_max = 2,
 		.rates = SNDRV_PCM_RATE_8000_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FORMAT_S24_LE,
+	},
+	.capture = {
+		.stream_name = "HiFi Capture",
+		.channels_min = 1,
+		.channels_max = 2,
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_32000 |
+			 SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 	.ops = &cpcap_dai_hifi_ops,
 },
