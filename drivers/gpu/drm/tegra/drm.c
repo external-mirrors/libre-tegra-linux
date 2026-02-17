@@ -742,6 +742,52 @@ static int tegra_gem_get_flags(struct drm_device *drm, void *data,
 
 	return 0;
 }
+
+static int tegra_gem_cpu_prep(struct drm_device *drm, void *data,
+			      struct drm_file *file)
+{
+	struct drm_tegra_gem_cpu_prep *args = data;
+	struct drm_gem_object *gem;
+	struct tegra_bo *bo;
+	unsigned long timeout;
+	bool write;
+	int ret;
+
+	gem = drm_gem_object_lookup(file, args->handle);
+	if (!gem) {
+		DRM_ERROR("failed to find bo handle %u\n", args->handle);
+		return -ENOENT;
+	}
+
+	bo = to_tegra_bo(gem);
+	write = !!(args->flags & DRM_TEGRA_CPU_PREP_WRITE);
+	timeout = usecs_to_jiffies(args->timeout);
+
+	if (timeout)
+		ret = dma_resv_wait_timeout(bo->gem.resv, dma_resv_usage_rw(write),
+					    true, timeout);
+	else
+		ret = dma_resv_test_signaled(bo->gem.resv,
+					     dma_resv_usage_rw(write));
+
+	drm_gem_object_put(gem);
+
+	if (ret == 0) {
+		DRM_DEBUG_DRIVER("bo handle %u is busy\n", args->handle);
+		return timeout == 0 ? -EBUSY : -ETIMEDOUT;
+	}
+
+	if (ret < 0) {
+		if (ret != -ERESTARTSYS || drm_debug_enabled(DRM_UT_DRIVER))
+			DRM_ERROR("failed to await bo handle %u: %d\n",
+				  args->handle, ret);
+		return ret;
+	}
+
+	DRM_DEBUG_DRIVER("bo handle %u is idling\n", args->handle);
+
+	return 0;
+}
 #endif
 
 static const struct drm_ioctl_desc tegra_drm_ioctls[] = {
@@ -788,6 +834,8 @@ static const struct drm_ioctl_desc tegra_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(TEGRA_GEM_SET_FLAGS, tegra_gem_set_flags,
 			  DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(TEGRA_GEM_GET_FLAGS, tegra_gem_get_flags,
+			  DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(TEGRA_GEM_CPU_PREP, tegra_gem_cpu_prep,
 			  DRM_RENDER_ALLOW),
 #endif
 };
