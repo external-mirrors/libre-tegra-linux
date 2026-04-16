@@ -56,30 +56,55 @@ struct baseband_xmm_power_data {
 	bool powered;
 };
 
+static void baseband_xmm_usb_register(struct baseband_xmm_power_data *priv)
+{
+	struct tegra_usb *usb = platform_get_drvdata(priv->usb_dev);
+
+	device_lock(priv->dev);
+
+	usb_phy_init(priv->usb_phy);
+	gpiod_set_value_cansleep(priv->hsic_en_gpio, 1);
+	usb->dev = ci_hdrc_add_device(&priv->usb_dev->dev, priv->usb_dev->resource,
+				      priv->usb_dev->num_resources, &usb->data);
+	priv->powered = true;
+
+	device_unlock(priv->dev);
+}
+
+static void baseband_xmm_usb_deregister(struct baseband_xmm_power_data *priv)
+{
+	struct tegra_usb *usb = platform_get_drvdata(priv->usb_dev);
+
+	priv->ap_state = IPC_AP_WAKE_IRQ_READY;
+
+	/* unregister usb host controller */
+	dev_err(priv->dev, "deregistring USB\n");
+
+	device_lock(priv->dev);
+
+	ci_hdrc_remove_device(usb->dev);
+	usb_phy_shutdown(priv->usb_phy);
+	gpiod_set_value_cansleep(priv->hsic_en_gpio, 0);
+	priv->powered = false;
+
+	device_unlock(priv->dev);
+
+	msleep(500);
+}
+
 static void baseband_xmm_init_work(struct work_struct *work)
 {
 	struct baseband_xmm_power_data *priv =
 		container_of(work, struct baseband_xmm_power_data, modem_init_work.work);
-	struct tegra_usb *usb = platform_get_drvdata(priv->usb_dev);
 
-	if (!priv->powered) {
-		device_lock(priv->dev);
-
-		usb_phy_init(priv->usb_phy);
-		gpiod_set_value_cansleep(priv->hsic_en_gpio, 1);
-		usb->dev = ci_hdrc_add_device(&priv->usb_dev->dev, priv->usb_dev->resource,
-					      priv->usb_dev->num_resources, &usb->data);
-		priv->powered = true;
-
-		device_unlock(priv->dev);
-	}
+	if (!priv->powered)
+		baseband_xmm_usb_register(priv);
 };
 
 static void baseband_xmm_poll_work(struct work_struct *work)
 {
 	struct baseband_xmm_power_data *priv =
 		container_of(work, struct baseband_xmm_power_data, modem_poll_work.work);
-	struct tegra_usb *usb = platform_get_drvdata(priv->usb_dev);
 	int timeout_200ms = 0;
 
 	/* waiting ttyACM dev to be created */
@@ -96,21 +121,7 @@ static void baseband_xmm_poll_work(struct work_struct *work)
 	} while (++timeout_200ms <= MODEM_ENUM_TIMEOUT_200MS);
 
 	dev_err(priv->dev, "modem registration failed\n");
-	priv->ap_state = IPC_AP_WAKE_IRQ_READY;
-
-	/* unregister usb host controller */
-	dev_err(priv->dev, "deregistring USB\n");
-
-	device_lock(priv->dev);
-
-	ci_hdrc_remove_device(usb->dev);
-	usb_phy_shutdown(priv->usb_phy);
-	gpiod_set_value_cansleep(priv->hsic_en_gpio, 0);
-	priv->powered = false;
-
-	device_unlock(priv->dev);
-
-	msleep(500);
+	baseband_xmm_usb_deregister(priv);
 }
 
 static irqreturn_t baseband_hostwake_interrupt(int irq, void *dev_id)
@@ -195,9 +206,15 @@ static ssize_t ehci_power_store(struct device *dev, struct device_attribute *att
 static DEVICE_ATTR_RW(ehci_power);
 #endif
 
-static void baseband_xmm_reset(struct baseband_xmm_power_data *priv)
+static void baseband_xmm_power_on(struct baseband_xmm_power_data *priv)
 {
 	int ret;
+
+	/* ver 1145 or later starts in READY state */
+	/* ap_wake keeps low util CP starts to initiate hsic hw. */
+	/* ap_wake goes up during cp hsic init and then */
+	/* it goes down when cp hsic ready */
+	priv->ap_state = IPC_AP_WAKE_IRQ_READY;
 
 	ret = regulator_enable(priv->vbus_supply);
 	if (ret < 0)
@@ -225,6 +242,8 @@ static void baseband_xmm_power_off(void *data)
 {
 	struct baseband_xmm_power_data *priv = data;
 
+	baseband_xmm_usb_deregister(priv);
+
 	gpiod_set_value_cansleep(priv->enable_gpio, 0);
 	gpiod_set_value_cansleep(priv->reset_gpio, 1);
 
@@ -234,32 +253,13 @@ static void baseband_xmm_power_off(void *data)
 static int baseband_xmm_rfkill_set_power(void *data, bool blocked)
 {
 	struct baseband_xmm_power_data *priv = data;
-	struct tegra_usb *usb = platform_get_drvdata(priv->usb_dev);
 
 	if (blocked) {
 		dev_err(priv->dev, "blocking modem\n");
-		priv->ap_state = IPC_AP_WAKE_IRQ_READY;
-
-		/* unregister usb host controller */
-		dev_err(priv->dev, "deregistring USB\n");
-
-		device_lock(priv->dev);
-
-		ci_hdrc_remove_device(usb->dev);
-		usb_phy_shutdown(priv->usb_phy);
-		gpiod_set_value_cansleep(priv->hsic_en_gpio, 0);
-		priv->powered = false;
-
-		device_unlock(priv->dev);
-
-		msleep(500);
-
 		baseband_xmm_power_off(priv);
 	} else {
 		dev_err(priv->dev, "unblocking modem\n");
-		priv->ap_state = IPC_AP_WAKE_IRQ_READY;
-
-		baseband_xmm_reset(priv);
+		baseband_xmm_power_on(priv);
 	}
 
 	return 0;
@@ -338,13 +338,19 @@ static int baseband_xmm_power_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(priv->hsic_en_gpio),
 				     "failed to get HSIC EN GPIO\n");
 
-	/* ver 1145 or later starts in READY state */
-	/* ap_wake keeps low util CP starts to initiate hsic hw. */
-	/* ap_wake goes up during cp hsic init and then */
-	/* it goes down when cp hsic ready */
-	priv->ap_state = IPC_AP_WAKE_IRQ_READY;
+	priv->rfkill_dev = rfkill_alloc("modem0", dev, RFKILL_TYPE_WWAN,
+					&baseband_xmm_rfkill_ops, priv);
+	if (priv->rfkill_dev) {
+		if (rfkill_register(priv->rfkill_dev) < 0)
+			rfkill_destroy(priv->rfkill_dev);
 
-	baseband_xmm_reset(priv);
+		ret = devm_add_action_or_reset(dev, baseband_xmm_free_rfkill,
+					       priv->rfkill_dev);
+		if (ret)
+			return ret;
+	}
+
+	baseband_xmm_power_on(priv);
 	gpiod_set_value_cansleep(priv->hsic_en_gpio, 0);
 
 	ret = devm_add_action_or_reset(dev, baseband_xmm_power_off, priv);
@@ -365,20 +371,6 @@ static int baseband_xmm_power_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "failed to register IRQ %d\n", priv->irq_hostwake);
-
-	priv->rfkill_dev = rfkill_alloc("modem0", dev, RFKILL_TYPE_WWAN,
-					&baseband_xmm_rfkill_ops, priv);
-	if (priv->rfkill_dev) {
-		if (rfkill_register(priv->rfkill_dev) < 0)
-			rfkill_destroy(priv->rfkill_dev);
-
-		ret = devm_add_action_or_reset(dev, baseband_xmm_free_rfkill,
-					       priv->rfkill_dev);
-		if (ret)
-			return ret;
-
-		rfkill_set_states(priv->rfkill_dev, false, false);
-	}
 
 //	device_create_file(dev, &dev_attr_ehci_power);
 	priv->powered = false;
