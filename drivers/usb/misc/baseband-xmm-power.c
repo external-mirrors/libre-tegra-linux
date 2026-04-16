@@ -12,8 +12,9 @@
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
-#include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
+#include <linux/rfkill.h>
 #include <linux/usb/chipidea.h>
 #include <linux/usb/tegra_usb_phy.h>
 
@@ -30,6 +31,7 @@ enum ipc_ap_wake_state {
 
 struct baseband_xmm_power_data {
 	struct device *dev;
+	struct rfkill *rfkill_dev;
 
 	struct platform_device *usb_dev;
 	struct usb_phy *usb_phy;
@@ -229,6 +231,50 @@ static void baseband_xmm_power_off(void *data)
 	regulator_disable(priv->vbus_supply);
 }
 
+static int baseband_xmm_rfkill_set_power(void *data, bool blocked)
+{
+	struct baseband_xmm_power_data *priv = data;
+	struct tegra_usb *usb = platform_get_drvdata(priv->usb_dev);
+
+	if (blocked) {
+		dev_err(priv->dev, "blocking modem\n");
+		priv->ap_state = IPC_AP_WAKE_IRQ_READY;
+
+		/* unregister usb host controller */
+		dev_err(priv->dev, "deregistring USB\n");
+
+		device_lock(priv->dev);
+
+		ci_hdrc_remove_device(usb->dev);
+		usb_phy_shutdown(priv->usb_phy);
+		gpiod_set_value_cansleep(priv->hsic_en_gpio, 0);
+		priv->powered = false;
+
+		device_unlock(priv->dev);
+
+		msleep(500);
+
+		baseband_xmm_power_off(priv);
+	} else {
+		dev_err(priv->dev, "unblocking modem\n");
+		priv->ap_state = IPC_AP_WAKE_IRQ_READY;
+
+		baseband_xmm_reset(priv);
+	}
+
+	return 0;
+}
+
+static const struct rfkill_ops baseband_xmm_rfkill_ops = {
+	.set_block = baseband_xmm_rfkill_set_power,
+};
+
+static void baseband_xmm_free_rfkill(void *rfkill_dev)
+{
+	rfkill_unregister(rfkill_dev);
+	rfkill_destroy(rfkill_dev);
+}
+
 static int baseband_xmm_power_probe(struct platform_device *pdev)
 {
 	struct baseband_xmm_power_data *priv;
@@ -319,6 +365,20 @@ static int baseband_xmm_power_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "failed to register IRQ %d\n", priv->irq_hostwake);
+
+	priv->rfkill_dev = rfkill_alloc("modem0", dev, RFKILL_TYPE_WWAN,
+					&baseband_xmm_rfkill_ops, priv);
+	if (priv->rfkill_dev) {
+		if (rfkill_register(priv->rfkill_dev) < 0)
+			rfkill_destroy(priv->rfkill_dev);
+
+		ret = devm_add_action_or_reset(dev, baseband_xmm_free_rfkill,
+					       priv->rfkill_dev);
+		if (ret)
+			return ret;
+
+		rfkill_set_states(priv->rfkill_dev, false, false);
+	}
 
 //	device_create_file(dev, &dev_attr_ehci_power);
 	priv->powered = false;
