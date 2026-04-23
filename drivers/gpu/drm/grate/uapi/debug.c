@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+#include <drm/drm_print.h>
+
 #include "debug.h"
 
 static void write_to_printk(const char *str, size_t len, bool cont,

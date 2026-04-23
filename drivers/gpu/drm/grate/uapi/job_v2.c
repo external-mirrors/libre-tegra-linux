@@ -2,6 +2,8 @@
 
 #include <linux/bitops.h>
 
+#include <drm/drm_print.h>
+
 #include "debug.h"
 #include "gart.h"
 #include "job.h"

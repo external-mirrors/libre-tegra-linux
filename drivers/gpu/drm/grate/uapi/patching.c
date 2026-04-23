@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 
+#include <drm/drm_print.h>
+
 #include "job.h"
 
 #define PATCH_ERROR(fmt, args...)					\

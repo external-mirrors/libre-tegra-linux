@@ -2,6 +2,8 @@
 
 #include <linux/module.h>
 
+#include <drm/drm_print.h>
+
 #include "drm.h"
 #include "gart.h"
 #include "job.h"

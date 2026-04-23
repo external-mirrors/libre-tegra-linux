@@ -2,6 +2,8 @@
 
 #include <linux/dma-fence-array.h>
 
+#include <drm/drm_print.h>
+
 #include "debug.h"
 #include "job.h"
 #include "scheduler.h"

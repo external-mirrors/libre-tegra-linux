@@ -7,6 +7,8 @@
  * published by the Free Software Foundation.
  */
 
+#include <drm/drm_print.h>
+
 #include "drm.h"
 #include "job.h"
 #include "uapi.h"
