@@ -1546,6 +1546,21 @@ static void tegra_hdmi_codec_unregister(struct tegra_hdmi *hdmi)
 		platform_device_unregister(hdmi->audio_pdev);
 }
 
+static void tegra_hdmi_connector_attach(struct drm_device *drm, struct tegra_hdmi *hdmi)
+{
+	drm_connector_init_with_ddc(drm, &hdmi->output.connector,
+				    &tegra_hdmi_connector_funcs,
+				    DRM_MODE_CONNECTOR_HDMIA,
+				    hdmi->output.ddc);
+	drm_connector_helper_add(&hdmi->output.connector,
+				 &tegra_hdmi_connector_helper_funcs);
+	hdmi->output.connector.dpms = DRM_MODE_DPMS_OFF;
+
+	drm_connector_attach_encoder(&hdmi->output.connector,
+				     &hdmi->output.encoder);
+	drm_connector_register(&hdmi->output.connector);
+}
+
 static int tegra_hdmi_init(struct host1x_client *client)
 {
 	struct tegra_hdmi *hdmi = host1x_client_to_hdmi(client);
@@ -1570,26 +1585,12 @@ static int tegra_hdmi_init(struct host1x_client *client)
 		}
 
 		connector = drm_bridge_connector_init(drm, &hdmi->output.encoder);
-		if (IS_ERR(connector)) {
-			dev_err(client->dev,
-				"failed to initialize bridge connector: %pe\n",
-				connector);
-			return PTR_ERR(connector);
-		}
-
-		drm_connector_attach_encoder(connector, &hdmi->output.encoder);
+		if (IS_ERR(connector))
+			tegra_hdmi_connector_attach(drm, hdmi);
+		else
+			drm_connector_attach_encoder(connector, &hdmi->output.encoder);
 	} else {
-		drm_connector_init_with_ddc(drm, &hdmi->output.connector,
-					    &tegra_hdmi_connector_funcs,
-					    DRM_MODE_CONNECTOR_HDMIA,
-					    hdmi->output.ddc);
-		drm_connector_helper_add(&hdmi->output.connector,
-					 &tegra_hdmi_connector_helper_funcs);
-		hdmi->output.connector.dpms = DRM_MODE_DPMS_OFF;
-
-		drm_connector_attach_encoder(&hdmi->output.connector,
-					     &hdmi->output.encoder);
-		drm_connector_register(&hdmi->output.connector);
+		tegra_hdmi_connector_attach(drm, hdmi);
 	}
 
 	err = tegra_output_init(drm, &hdmi->output);
