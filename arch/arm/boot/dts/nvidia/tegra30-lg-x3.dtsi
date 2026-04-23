@@ -1910,6 +1910,7 @@
 		vbus-supply = <&avdd_3v3_periph>;
 	};
 
+#if 0
 	/* Modem line */
 	hsic_usb: usb@7d004000 {
 		status = "okay";
@@ -1940,6 +1941,7 @@
 		usb-bus = <&hsic_usb>, <&phy2>;
 		vbus-supply = <&vdd_3v3_vbat>;
 	};
+#endif
 
 	/* PMIC has a built-in 32KHz oscillator which is used by PMC */
 	clk32k_in: clock-32k {
