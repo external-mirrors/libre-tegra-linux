@@ -621,7 +621,7 @@ static const u64 tegra124_modifiers[] = {
 };
 
 static int tegra_plane_atomic_check(struct drm_plane *plane,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
 										 plane);
@@ -713,7 +713,7 @@ static int tegra_plane_atomic_check(struct drm_plane *plane,
 }
 
 static void tegra_plane_atomic_disable(struct drm_plane *plane,
-				       struct drm_atomic_state *state)
+				       struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state,
 									   plane);
@@ -730,7 +730,7 @@ static void tegra_plane_atomic_disable(struct drm_plane *plane,
 }
 
 static void tegra_plane_atomic_update(struct drm_plane *plane,
-				      struct drm_atomic_state *state)
+				      struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state,
 									   plane);
@@ -822,7 +822,7 @@ static void tegra_plane_atomic_update(struct drm_plane *plane,
 }
 
 static int tegra_plane_atomic_async_check(struct drm_plane *plane,
-					  struct drm_atomic_state *state, bool flip)
+					  struct drm_atomic_commit *state, bool flip)
 {
 	struct drm_plane_state *new_plane_state;
 	int err;
@@ -864,7 +864,7 @@ static inline void tegra_plane_atomic_flush(struct drm_plane *plane)
 }
 
 static void tegra_plane_atomic_async_update(struct drm_plane *plane,
-					    struct drm_atomic_state *state)
+					    struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_plane_state;
 
@@ -1010,7 +1010,7 @@ static const u32 tegra_cursor_plane_formats[] = {
 };
 
 static int tegra_cursor_atomic_check(struct drm_plane *plane,
-				     struct drm_atomic_state *state)
+				     struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
 										 plane);
@@ -1146,7 +1146,7 @@ static void __tegra_cursor_atomic_update(struct drm_plane *plane,
 }
 
 static void tegra_cursor_atomic_update(struct drm_plane *plane,
-				       struct drm_atomic_state *state)
+				       struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);
 
@@ -1154,7 +1154,7 @@ static void tegra_cursor_atomic_update(struct drm_plane *plane,
 }
 
 static void tegra_cursor_atomic_disable(struct drm_plane *plane,
-					struct drm_atomic_state *state)
+					struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state,
 									   plane);
@@ -1172,7 +1172,7 @@ static void tegra_cursor_atomic_disable(struct drm_plane *plane,
 	tegra_dc_writel(dc, value, DC_DISP_DISP_WIN_OPTIONS);
 }
 
-static int tegra_cursor_atomic_async_check(struct drm_plane *plane, struct drm_atomic_state *state,
+static int tegra_cursor_atomic_async_check(struct drm_plane *plane, struct drm_atomic_commit *state,
 					   bool flip)
 {
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);
@@ -1211,7 +1211,7 @@ static int tegra_cursor_atomic_async_check(struct drm_plane *plane, struct drm_a
 }
 
 static void tegra_cursor_atomic_async_update(struct drm_plane *plane,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);
 	struct tegra_dc *dc = to_tegra_dc(new_state->crtc);
@@ -2127,7 +2127,7 @@ static int tegra_dc_wait_idle(struct tegra_dc *dc, unsigned long timeout)
 
 static void
 tegra_crtc_update_memory_bandwidth(struct drm_crtc *crtc,
-				   struct drm_atomic_state *state,
+				   struct drm_atomic_commit *state,
 				   bool prepare_bandwidth_transition)
 {
 	const struct tegra_plane_state *old_tegra_state, *new_tegra_state;
@@ -2223,7 +2223,7 @@ tegra_crtc_update_memory_bandwidth(struct drm_crtc *crtc,
 }
 
 static void tegra_crtc_atomic_disable(struct drm_crtc *crtc,
-				      struct drm_atomic_state *state)
+				      struct drm_atomic_commit *state)
 {
 	struct tegra_dc *dc = to_tegra_dc(crtc);
 	u32 value;
@@ -2287,7 +2287,7 @@ static void tegra_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 static void tegra_crtc_atomic_enable(struct drm_crtc *crtc,
-				     struct drm_atomic_state *state)
+				     struct drm_atomic_commit *state)
 {
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct tegra_dc_state *crtc_state = to_dc_state(crtc->state);
@@ -2418,7 +2418,7 @@ static void tegra_crtc_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void tegra_crtc_atomic_begin(struct drm_crtc *crtc,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	unsigned long flags;
 
@@ -2439,7 +2439,7 @@ static void tegra_crtc_atomic_begin(struct drm_crtc *crtc,
 }
 
 static void tegra_crtc_atomic_flush(struct drm_crtc *crtc,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state,
 									  crtc);
@@ -2524,7 +2524,7 @@ tegra_plane_overlap_mask(struct drm_crtc_state *state,
 }
 
 static int tegra_crtc_calculate_memory_bandwidth(struct drm_crtc *crtc,
-						 struct drm_atomic_state *state)
+						 struct drm_atomic_commit *state)
 {
 	ulong overlap_mask[TEGRA_DC_LEGACY_PLANES_NUM] = {}, mask;
 	u32 plane_peak_bw[TEGRA_DC_LEGACY_PLANES_NUM] = {};
@@ -2636,7 +2636,7 @@ static int tegra_crtc_calculate_memory_bandwidth(struct drm_crtc *crtc,
 }
 
 static int tegra_crtc_atomic_check(struct drm_crtc *crtc,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	int err;
 
@@ -2648,7 +2648,7 @@ static int tegra_crtc_atomic_check(struct drm_crtc *crtc,
 }
 
 void tegra_crtc_atomic_post_commit(struct drm_crtc *crtc,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	/*
 	 * Display bandwidth is allowed to go down only once hardware state
@@ -2917,7 +2917,7 @@ static int tegra_dc_runtime_suspend(struct host1x_client *client)
 	}
 
 	if (dc->soc->has_powergate)
-		tegra_powergate_power_off(dc->powergate);
+		tegra_pmc_powergate_power_off(dc->pmc, dc->powergate);
 
 	clk_disable_unprepare(dc->clk);
 	pm_runtime_put_sync(dev);
@@ -2938,8 +2938,9 @@ static int tegra_dc_runtime_resume(struct host1x_client *client)
 	}
 
 	if (dc->soc->has_powergate) {
-		err = tegra_powergate_sequence_power_up(dc->powergate, dc->clk,
-							dc->rst);
+		err = tegra_pmc_powergate_sequence_power_up(dc->pmc,
+							    dc->powergate,
+							    dc->clk, dc->rst);
 		if (err < 0) {
 			dev_err(dev, "failed to power partition: %d\n", err);
 			goto put_rpm;
@@ -3372,12 +3373,17 @@ static int tegra_dc_probe(struct platform_device *pdev)
 	clk_disable_unprepare(dc->clk);
 
 	if (dc->soc->has_powergate) {
+		dc->pmc = devm_tegra_pmc_get(dc->dev);
+		if (IS_ERR(dc->pmc))
+			return dev_err_probe(dc->dev, PTR_ERR(dc->pmc),
+					     "failed to get PMC\n");
+
 		if (dc->pipe == 0)
 			dc->powergate = TEGRA_POWERGATE_DIS;
 		else
 			dc->powergate = TEGRA_POWERGATE_DISB;
 
-		tegra_powergate_power_off(dc->powergate);
+		tegra_pmc_powergate_power_off(dc->pmc, dc->powergate);
 	}
 
 	err = tegra_dc_init_opp_table(dc);

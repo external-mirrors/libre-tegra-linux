@@ -83,9 +83,9 @@ struct drm_plane *tegra_shared_plane_create(struct drm_device *drm,
 					    unsigned int index);
 
 int tegra_display_hub_atomic_check(struct drm_device *drm,
-				   struct drm_atomic_state *state);
+				   struct drm_atomic_commit *state);
 void tegra_display_hub_atomic_commit(struct drm_device *drm,
-				     struct drm_atomic_state *state);
+				     struct drm_atomic_commit *state);
 
 #define DC_CMD_IHUB_COMMON_MISC_CTL 0x068
 #define  LATENCY_EVENT (1 << 3)

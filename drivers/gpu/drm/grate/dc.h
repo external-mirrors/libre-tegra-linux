@@ -104,6 +104,7 @@ struct tegra_dc {
 	int irq;
 
 	struct tegra_output *rgb;
+	struct tegra_pmc *pmc;
 
 	struct tegra_dc_stats stats;
 	struct list_head list;
@@ -185,7 +186,7 @@ int tegra_dc_state_setup_clock(struct tegra_dc *dc,
 			       struct clk *clk, unsigned long pclk,
 			       unsigned int div);
 void tegra_crtc_atomic_post_commit(struct drm_crtc *crtc,
-				   struct drm_atomic_state *state);
+				   struct drm_atomic_commit *state);
 
 /* from rgb.c */
 int tegra_dc_rgb_probe(struct tegra_dc *dc);
